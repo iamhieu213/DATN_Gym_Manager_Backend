@@ -19,6 +19,13 @@ enum UserStatus {
   INACTIVE
   SUSPENDED
   BANNED
+  DELETED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
 }
 
 enum OtpType {
@@ -40,6 +47,13 @@ model User {
   status            UserStatus   @default(ACTIVE)
 
   googleId          String?      @unique @map("google_id") @db.VarChar(255)
+
+  // New profile fields
+  avatarUrl         String?      @map("avatar_url") @db.VarChar(255)
+  gender            Gender?
+  citizenId         String?      @unique @map("citizen_id") @db.VarChar(50)
+  address           String?      @db.VarChar(255)
+  emergencyContact  String?      @map("emergency_contact") @db.VarChar(255)
 
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")

@@ -2,8 +2,9 @@ import { Request, Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
 import { UserService } from "./user.service";
 import { prisma } from "../../config/client";
-import { ListUserQueryDto, CreateUserDto, UpdateProfileDto, UpdateStatusDto, UpdateUserDto } from "./user.dto";
+import { ListUserQueryDto, CreateUserDto, UpdateProfileDto, UpdateStatusDto, UpdateUserDto, UpdateAvatarDto, SoftDeleteUserDto, ResetPasswordDto } from "./user.dto";
 import { UserRepository } from "./user.repository";
+import { uploadToCloudinary } from "../../services/cloudinary.service";
 
 const userService = new UserService(new UserRepository(prisma));
 
@@ -17,6 +18,7 @@ const mapErrorStatus = (code: string): number => {
             return 404;
         case "EMAIL_ALREADY_EXISTS":
         case "PHONE_ALREADY_EXISTS":
+        case "CITIZEN_ID_ALREADY_EXISTS":
             return 409;
         case "BAD_REQUEST":
         case "INVALID_ID":
@@ -38,6 +40,8 @@ const mapErrorMessage = (code: string): string => {
             return "Email này đã tồn tại trong hệ thống.";
         case "PHONE_ALREADY_EXISTS":
             return "Số điện thoại này đã tồn tại trong hệ thống.";
+        case "CITIZEN_ID_ALREADY_EXISTS":
+            return "Số CCCD này đã tồn tại trong hệ thống.";
         case "BAD_REQUEST":
             return "Yêu cầu không hợp lệ.";
         case "INVALID_ID":
@@ -115,6 +119,44 @@ export const updateMyProfile = async (req: AuthRequest, res: Response) => {
         res.status(200).json({
             success: true,
             message: "Cập nhật thông tin cá nhân thành công.",
+            data: result
+        });
+    } catch (error) {
+        const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+        res.status(mapErrorStatus(code)).json({
+            success: false,
+            message: mapErrorMessage(code),
+            error: code
+        });
+    }
+};
+
+// 3b. Người dùng tự cập nhật ảnh đại diện
+export const updateMyAvatar = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.user?.userId) {
+            return res.status(401).json({
+                success: false,
+                message: "Bạn chưa đăng nhập hoặc phiên làm việc đã hết hạn.",
+                error: "UNAUTHORIZED"
+            });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "Vui lòng chọn một file ảnh để tải lên.",
+                error: "BAD_REQUEST"
+            });
+        }
+
+        // Upload file buffer lên Cloudinary
+        const avatarUrl = await uploadToCloudinary(req.file.buffer, "gym_avatars");
+
+        const result = await userService.updateAvatar(req.user.userId, avatarUrl);
+        res.status(200).json({
+            success: true,
+            message: "Cập nhật ảnh đại diện thành công.",
             data: result
         });
     } catch (error) {
@@ -277,6 +319,94 @@ export const updateUserStatus = async (req: AuthRequest, res: Response) => {
         });
     }
 };
+
+//8.Xoa mem nguoi dung (soft delete) (ADMIN/STAFF)
+export const softDeleteUser = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        const role = req.user?.role;
+        if (!userId || !role) {
+            return res.status(401).json({
+                success: false,
+                message: "Bạn chưa đăng nhập hoặc phiên làm việc đã hết hạn.",
+                error: "UNAUTHORIZED"
+            });
+        }
+        if (!req.params.id || Array.isArray(req.params.id)) {
+            return res.status(400).json({
+                success: false,
+                message: "ID người dùng không hợp lệ.",
+                error: "INVALID_ID"
+            });
+        }
+        const id = parseInt(req.params.id, 10);
+        if (isNaN(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "ID người dùng không hợp lệ.",
+                error: "INVALID_ID"
+            })
+        }
+        const result = await userService.softDeleteUser(role, id, req.body as SoftDeleteUserDto);
+        res.status(200).json({
+            success: true,
+            message: "Xóa mềm tài khoản người dùng thành công.",
+            data: result
+        });
+
+    } catch (error) {
+        const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+        res.status(mapErrorStatus(code)).json({
+            success: false,
+            message: mapErrorMessage(code),
+            error: code
+        })
+    }
+}
+
+// 9. Reset mật khẩu người dùng (ADMIN/STAFF)
+export const resetUserPassword = async (req: AuthRequest, res: Response) => {
+    try {
+         const userId = req.user?.userId;
+         const role = req.user?.role;
+         if (!userId || !role) {
+             return res.status(401).json({
+                 success: false,
+                 message: "Bạn chưa đăng nhập hoặc phiên làm việc đã hết hạn.",
+                 error: "UNAUTHORIZED"
+             });
+         }
+         if (!req.params.id || Array.isArray(req.params.id)) {
+            return res.status(400).json({
+                success: false,
+                message: "ID người dùng không hợp lệ.",
+                error: "INVALID_ID"
+            });
+        }
+        const id = parseInt(req.params.id, 10);
+        if (isNaN(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "ID người dùng không hợp lệ.",
+                error: "INVALID_ID"
+            })
+        }
+        const result = await userService.resetPassword(role, id, req.body as ResetPasswordDto);
+        res.status(200).json({
+            success: true,
+            message: "Reset mật khẩu người dùng thành công.",
+            data: result
+        });
+
+    } catch (error) {
+        const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+        res.status(mapErrorStatus(code)).json({
+            success: false,
+            message: mapErrorMessage(code),
+            error: code
+        })
+    }
+}
 
 
 

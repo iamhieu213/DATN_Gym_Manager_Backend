@@ -1,6 +1,6 @@
 import { UserRole } from "@prisma/client";
 import { UserRepository, UserListRow } from "./user.repository";
-import { ListUserQueryDto, PaginatedUserListDto, UserListItemDto, UpdateProfileDto, CreateUserDto, UpdateUserDto, UpdateStatusDto } from "./user.dto";
+import { ListUserQueryDto, PaginatedUserListDto, UserListItemDto, UpdateProfileDto, CreateUserDto, UpdateUserDto, UpdateStatusDto, SoftDeleteUserDto, ResetPasswordDto } from "./user.dto";
 import bcrypt from "bcrypt";
 import { sendWelcomeStaffMail } from "../../services/mail.service";
 
@@ -13,10 +13,15 @@ function mapRow(row: UserListRow): UserListItemDto {
         id: row.id,
         email: row.email,
         name: row.name,
-        phone: row.phone!,
-        dateOfBirth: row.dateOfBirth!,
+        phone: row.phone,
+        dateOfBirth: row.dateOfBirth,
         role: row.role,
         status: row.status,
+        avatarUrl: row.avatarUrl,
+        gender: row.gender,
+        citizenId: row.citizenId,
+        address: row.address,
+        emergencyContact: row.emergencyContact,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }
@@ -81,7 +86,7 @@ export class UserService {
         return mapRow(user);
     }
 
-    // 2. Người dùng tự cập nhật thông tin cá nhân (chỉ đổi Tên, SĐT, Ngày sinh)
+    // 2. Người dùng tự cập nhật thông tin cá nhân
     public async updateProfile(userId: number, dto: UpdateProfileDto): Promise<UserListItemDto> {
         const user = await this.userRepository.findById(userId);
         if (!user) {
@@ -89,10 +94,39 @@ export class UserService {
         }
         const updateData: any = {};
         if (dto.name !== undefined) updateData.name = dto.name;
-        if (dto.phone !== undefined) updateData.phone = dto.phone;
+        
+        if (dto.phone !== undefined) {
+            if (dto.phone !== null && dto.phone !== "") {
+                const phoneExisted = await this.userRepository.findByPhone(dto.phone);
+                if (phoneExisted && phoneExisted.id !== userId) {
+                    throw new Error("PHONE_ALREADY_EXISTS");
+                }
+                updateData.phone = dto.phone;
+            } else {
+                updateData.phone = null;
+            }
+        }
+        
         if (dto.dateOfBirth !== undefined) {
             updateData.dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : null;
         }
+
+        if (dto.citizenId !== undefined) {
+            if (dto.citizenId !== null && dto.citizenId.trim() !== "") {
+                const citizenExisted = await this.userRepository.findByCitizenId(dto.citizenId.trim());
+                if (citizenExisted && citizenExisted.id !== userId) {
+                    throw new Error("CITIZEN_ID_ALREADY_EXISTS");
+                }
+                updateData.citizenId = dto.citizenId.trim();
+            } else {
+                updateData.citizenId = null;
+            }
+        }
+
+        if (dto.gender !== undefined) updateData.gender = dto.gender;
+        if (dto.address !== undefined) updateData.address = dto.address;
+        if (dto.emergencyContact !== undefined) updateData.emergencyContact = dto.emergencyContact;
+
         const updatedUser = await this.userRepository.update(userId, updateData);
         return mapRow(updatedUser);
     }
@@ -125,10 +159,16 @@ export class UserService {
         if (existed) {
             throw new Error("EMAIL_ALREADY_EXISTS");
         }
-        if (dto.phone !== undefined) {
+        if (dto.phone !== undefined && dto.phone !== null && dto.phone !== "") {
             const phoneExisted = await this.userRepository.findByPhone(dto.phone);
             if (phoneExisted) {
                 throw new Error("PHONE_ALREADY_EXISTS");
+            }
+        }
+        if (dto.citizenId !== undefined && dto.citizenId !== null && dto.citizenId.trim() !== "") {
+            const citizenExisted = await this.userRepository.findByCitizenId(dto.citizenId.trim());
+            if (citizenExisted) {
+                throw new Error("CITIZEN_ID_ALREADY_EXISTS");
             }
         }
         // Sử dụng mật khẩu được gửi lên, hoặc tự gán mật khẩu mặc định nếu trống
@@ -142,6 +182,11 @@ export class UserService {
             dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
             role: dto.role || UserRole.USER,
             status: dto.status || "ACTIVE",
+            avatarUrl: dto.avatarUrl || null,
+            gender: dto.gender || null,
+            citizenId: dto.citizenId ? dto.citizenId.trim() : null,
+            address: dto.address || null,
+            emergencyContact: dto.emergencyContact || null,
         });
 
         sendWelcomeStaffMail(newUser.email, newUser.name, newUser.role, password)
@@ -169,11 +214,39 @@ export class UserService {
         }
         const updateData: any = {};
         if (dto.name !== undefined) updateData.name = dto.name;
-        if (dto.phone !== undefined) updateData.phone = dto.phone;
+        
+        if (dto.phone !== undefined) {
+            if (dto.phone !== null && dto.phone !== "") {
+                const phoneExisted = await this.userRepository.findByPhone(dto.phone);
+                if (phoneExisted && phoneExisted.id !== targetId) {
+                    throw new Error("PHONE_ALREADY_EXISTS");
+                }
+                updateData.phone = dto.phone;
+            } else {
+                updateData.phone = null;
+            }
+        }
+
+        if (dto.citizenId !== undefined) {
+            if (dto.citizenId !== null && dto.citizenId.trim() !== "") {
+                const citizenExisted = await this.userRepository.findByCitizenId(dto.citizenId.trim());
+                if (citizenExisted && citizenExisted.id !== targetId) {
+                    throw new Error("CITIZEN_ID_ALREADY_EXISTS");
+                }
+                updateData.citizenId = dto.citizenId.trim();
+            } else {
+                updateData.citizenId = null;
+            }
+        }
+
         if (dto.role !== undefined) updateData.role = dto.role;
         if (dto.dateOfBirth !== undefined) {
             updateData.dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : null;
         }
+        if (dto.gender !== undefined) updateData.gender = dto.gender;
+        if (dto.address !== undefined) updateData.address = dto.address;
+        if (dto.emergencyContact !== undefined) updateData.emergencyContact = dto.emergencyContact;
+
         const updated = await this.userRepository.update(targetId, updateData);
         return mapRow(updated);
     }
@@ -194,6 +267,48 @@ export class UserService {
         const updated = await this.userRepository.update(targetId, {
             status: dto.status
         });
+        return mapRow(updated);
+    }
+
+    // 7. Cập nhật ảnh đại diện người dùng
+    public async updateAvatar(userId: number, avatarUrl: string): Promise<UserListItemDto> {
+        const user = await this.userRepository.findById(userId);
+        if (!user) {
+            throw new Error("USER_NOT_FOUND");
+        }
+        const updated = await this.userRepository.update(userId, {
+            avatarUrl
+        });
+        return mapRow(updated);
+    }
+
+    //8.Admin/Staff khóa mềm tài khoản người dùng (soft delete)
+    public async softDeleteUser(actorRole: string, userId: number, dto: SoftDeleteUserDto): Promise<UserListItemDto> {
+          return await this.updateUserStatus(actorRole, userId, { status: dto.status });
+    }
+
+    //9.Admin/Staff reset mat khau nguoi dung
+    public async resetPassword(actorRole: string, userId: number, dto: ResetPasswordDto): Promise<UserListItemDto> {
+        const allowed: UserRole[] = [UserRole.ADMIN, UserRole.STAFF];
+        if (!allowed.includes(actorRole as UserRole)) {
+            throw new Error("FORBIDDEN");
+        }
+
+        const targetUser = await this.userRepository.findById(userId);
+        if(!targetUser) {
+            throw new Error("USER_NOT_FOUND");
+        }
+
+        if(actorRole === UserRole.STAFF && targetUser.role === UserRole.ADMIN) {
+            throw new Error("FORBIDDEN");
+        }
+
+        const newPassword = dto.newPassword || "GymManager@123";
+        const passwordHash = await bcrypt.hash(newPassword, 10);
+        const updated = await this.userRepository.update(userId, {
+            passwordHash
+        });
+
         return mapRow(updated);
     }
 }

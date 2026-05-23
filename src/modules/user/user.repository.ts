@@ -8,6 +8,11 @@ const userListSelect = {
     dateOfBirth: true,
     role: true,
     status: true,
+    avatarUrl: true,
+    gender: true,
+    citizenId: true,
+    address: true,
+    emergencyContact: true,
     createdAt: true,
     updatedAt: true,
 } satisfies Prisma.UserSelect;
@@ -27,7 +32,11 @@ export class UserRepository {
         const where : Prisma.UserWhereInput = {};
 
         if(params.role) where.role = params.role;
-        if(params.status) where.status = params.status;
+        if(params.status) {
+            where.status = params.status;
+        } else {
+            where.status = { not: UserStatus.DELETED };
+        }
 
         if(params.search?.trim()) {
             const q = params.search.trim();
@@ -35,6 +44,7 @@ export class UserRepository {
                 { email: { contains: q, mode: "insensitive" } },
                 { name: { contains: q, mode: "insensitive" } },
                 { phone: { contains: q, mode: "insensitive" } },
+                { citizenId: { contains: q, mode: "insensitive" } },
             ];
         } 
 
@@ -67,6 +77,11 @@ export class UserRepository {
     //Time kiem user theo phone
     public async findByPhone(phone : string): Promise<UserListRow | null> {
         return this.prisma.user.findUnique({ where : { phone }, select : userListSelect });
+    }
+
+    // Tim kiem user theo citizenId (CCCD)
+    public async findByCitizenId(citizenId : string): Promise<UserListRow | null> {
+        return this.prisma.user.findUnique({ where : { citizenId }, select : userListSelect });
     }
 
     // 3. Tạo mới user vào DB
