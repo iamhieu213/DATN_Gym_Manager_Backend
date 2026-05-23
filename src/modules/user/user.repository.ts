@@ -17,28 +17,28 @@ const userListSelect = {
     updatedAt: true,
 } satisfies Prisma.UserSelect;
 
-export type UserListRow = Prisma.UserGetPayload<{ select: typeof userListSelect }> ;
+export type UserListRow = Prisma.UserGetPayload<{ select: typeof userListSelect }>;
 
 export class UserRepository {
-    constructor( private readonly prisma: PrismaClient) {}
+    constructor(private readonly prisma: PrismaClient) { }
 
     public async findManyPaginated(params: {
         skip: number;
         take: number;
-        role? : UserRole;
-        status? : UserStatus;
-        search? : string;
+        role?: UserRole;
+        status?: UserStatus;
+        search?: string;
     }): Promise<{ rows: UserListRow[]; total: number }> {
-        const where : Prisma.UserWhereInput = {};
+        const where: Prisma.UserWhereInput = {};
 
-        if(params.role) where.role = params.role;
-        if(params.status) {
+        if (params.role) where.role = params.role;
+        if (params.status) {
             where.status = params.status;
         } else {
             where.status = { not: UserStatus.DELETED };
         }
 
-        if(params.search?.trim()) {
+        if (params.search?.trim()) {
             const q = params.search.trim();
             where.OR = [
                 { email: { contains: q, mode: "insensitive" } },
@@ -46,42 +46,42 @@ export class UserRepository {
                 { phone: { contains: q, mode: "insensitive" } },
                 { citizenId: { contains: q, mode: "insensitive" } },
             ];
-        } 
+        }
 
         const [rows, total] = await Promise.all([
             this.prisma.user.findMany({
-              where,
-              select: userListSelect,
-              orderBy: { createdAt: "desc" },
-              skip: params.skip,
-              take: params.take,
+                where,
+                select: userListSelect,
+                orderBy: { createdAt: "desc" },
+                skip: params.skip,
+                take: params.take,
             }),
             this.prisma.user.count({ where }),
-          ]);
+        ]);
 
-          return { rows, total };
+        return { rows, total };
     }
 
     //Tim kiem user theo Id
-    public async findById(id : number): Promise<UserListRow | null> {
+    public async findById(id: number): Promise<UserListRow | null> {
         return this.prisma.user.findUnique({
-            where : { id },
-            select : userListSelect, 
+            where: { id },
+            select: userListSelect,
         });
     }
     //Time kiem user theo email
-    public async findByEmail(email : string): Promise<UserListRow | null> {
-        return this.prisma.user.findUnique({ where : { email }, select : userListSelect });
+    public async findByEmail(email: string): Promise<UserListRow | null> {
+        return this.prisma.user.findUnique({ where: { email }, select: userListSelect });
     }
 
     //Time kiem user theo phone
-    public async findByPhone(phone : string): Promise<UserListRow | null> {
-        return this.prisma.user.findUnique({ where : { phone }, select : userListSelect });
+    public async findByPhone(phone: string): Promise<UserListRow | null> {
+        return this.prisma.user.findUnique({ where: { phone }, select: userListSelect });
     }
 
     // Tim kiem user theo citizenId (CCCD)
-    public async findByCitizenId(citizenId : string): Promise<UserListRow | null> {
-        return this.prisma.user.findUnique({ where : { citizenId }, select : userListSelect });
+    public async findByCitizenId(citizenId: string): Promise<UserListRow | null> {
+        return this.prisma.user.findUnique({ where: { citizenId }, select: userListSelect });
     }
 
     // 3. Tạo mới user vào DB
@@ -98,5 +98,69 @@ export class UserRepository {
             data,
             select: userListSelect,
         });
+    }
+
+    //Thong ke so luong nguoi dung 
+    public async getUserStats(): Promise<any> {
+        const now = new Date();
+
+        //Lay moc thoi gian bat dau cua ngay hom nay
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        //Lay moc thoi gian bat dau cua thang nay
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const [roleGroups, statusGroups, totalCount, todayCount, monthCount] = await Promise.all([
+            // Nhóm và đếm số lượng theo Vai trò (loại trừ tài khoản đã xóa DELETED)
+            this.prisma.user.groupBy({
+                by: ['role'],
+                _count: { id: true },
+                where: { status: { not: 'DELETED' } }
+            }),
+            // Nhóm và đếm số lượng theo Trạng thái hoạt động
+            this.prisma.user.groupBy({
+                by: ['status'],
+                _count: { id: true },
+                where: { status: { not: 'DELETED' } }
+            }),
+            // Tổng số người dùng thực tế
+            this.prisma.user.count({
+                where: { status: { not: 'DELETED' } }
+            }),
+            // Số lượng người dùng đăng ký mới trong ngày hôm nay
+            this.prisma.user.count({
+                where: {
+                    createdAt: { gte: startOfToday },
+                    status: { not: 'DELETED' }
+                }
+            }),
+            // Số lượng người dùng đăng ký mới trong tháng này
+            this.prisma.user.count({
+                where: {
+                    createdAt: { gte: startOfMonth },
+                    status: { not: 'DELETED' }
+                }
+            })
+        ]);
+        // Định dạng và gán giá trị mặc định cho phân loại Role
+        const byRole = { ADMIN: 0, COACH: 0, STAFF: 0, USER: 0 };
+        roleGroups.forEach(g => {
+            byRole[g.role] = g._count.id;
+        });
+        // Định dạng và gán giá trị mặc định cho phân loại Status
+        const byStatus = { ACTIVE: 0, INACTIVE: 0, SUSPENDED: 0, BANNED: 0 };
+        statusGroups.forEach(g => {
+            if (g.status !== 'DELETED') {
+                byStatus[g.status as Exclude<typeof g.status, 'DELETED'>] = g._count.id;
+            }
+        });
+        return {
+            totalUsers: totalCount,
+            byRole,
+            byStatus,
+            newRegistrations: {
+                today: todayCount,
+                thisMonth: monthCount
+            }
+        };
     }
 }

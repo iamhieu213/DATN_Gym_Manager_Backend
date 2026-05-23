@@ -10,7 +10,8 @@ import { getAllUsers,
     updateUser,
     updateUserStatus,
     softDeleteUser,
-    resetUserPassword
+    resetUserPassword,
+    getUserStats
  } from "./user.controller";
  
 const router = Router();
@@ -26,6 +27,7 @@ router.patch("/me/avatar", upload.single("avatar"), updateMyAvatar); // PATCH /u
 // --- APIs cho ban quản trị (ADMIN/STAFF) ---
 router.get("/", getAllUsers);             // GET /users
 router.post("/", createUser);             // POST /users
+router.get("/stats", getUserStats);      // GET /users/stats
 router.get("/:id", getUserById);         // GET /users/:id
 router.patch("/:id", updateUser);         // PATCH /users/:id
 router.patch("/:id/status", updateUserStatus); // PATCH /users/:id/status

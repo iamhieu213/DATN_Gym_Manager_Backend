@@ -367,16 +367,16 @@ export const softDeleteUser = async (req: AuthRequest, res: Response) => {
 // 9. Reset mật khẩu người dùng (ADMIN/STAFF)
 export const resetUserPassword = async (req: AuthRequest, res: Response) => {
     try {
-         const userId = req.user?.userId;
-         const role = req.user?.role;
-         if (!userId || !role) {
-             return res.status(401).json({
-                 success: false,
-                 message: "Bạn chưa đăng nhập hoặc phiên làm việc đã hết hạn.",
-                 error: "UNAUTHORIZED"
-             });
-         }
-         if (!req.params.id || Array.isArray(req.params.id)) {
+        const userId = req.user?.userId;
+        const role = req.user?.role;
+        if (!userId || !role) {
+            return res.status(401).json({
+                success: false,
+                message: "Bạn chưa đăng nhập hoặc phiên làm việc đã hết hạn.",
+                error: "UNAUTHORIZED"
+            });
+        }
+        if (!req.params.id || Array.isArray(req.params.id)) {
             return res.status(400).json({
                 success: false,
                 message: "ID người dùng không hợp lệ.",
@@ -398,6 +398,32 @@ export const resetUserPassword = async (req: AuthRequest, res: Response) => {
             data: result
         });
 
+    } catch (error) {
+        const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+        res.status(mapErrorStatus(code)).json({
+            success: false,
+            message: mapErrorMessage(code),
+            error: code
+        })
+    }
+}
+
+//10. Thống kê người dùng (ADMIN/STAFF)
+export const getUserStats = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.user?.role) {
+            return res.status(401).json({
+                success: false,
+                message: "Bạn chưa đăng nhập hoặc phiên làm việc đã hết hạn.",
+                error: "UNAUTHORIZED"
+            });
+        }
+        const result = await userService.getUserStats(req.user.role);
+        res.status(200).json({
+            success: true,
+            message: "Lấy dữ liệu thống kê người dùng thành công.",
+            data: result
+        });
     } catch (error) {
         const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
         res.status(mapErrorStatus(code)).json({

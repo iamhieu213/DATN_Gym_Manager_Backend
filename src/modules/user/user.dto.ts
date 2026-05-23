@@ -92,3 +92,24 @@ export interface SoftDeleteUserDto {
 export interface ResetPasswordDto {
     newPassword: string;
 }
+
+// Định dạng cấu trúc dữ liệu thống kê trả về cho Dashboard
+export interface UserStatsDto {
+    totalUsers: number;
+    byRole: {
+        ADMIN: number;
+        COACH: number;
+        STAFF: number;
+        USER: number;
+    };
+    byStatus: {
+        ACTIVE: number;
+        INACTIVE: number;
+        SUSPENDED: number;
+        BANNED: number;
+    };
+    newRegistrations: {
+        today: number;
+        thisMonth: number;
+    };
+}

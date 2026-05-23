@@ -1,6 +1,17 @@
-import { UserRole } from "@prisma/client";
+import { UserRole, UserStatus } from "@prisma/client";
 import { UserRepository, UserListRow } from "./user.repository";
-import { ListUserQueryDto, PaginatedUserListDto, UserListItemDto, UpdateProfileDto, CreateUserDto, UpdateUserDto, UpdateStatusDto, SoftDeleteUserDto, ResetPasswordDto } from "./user.dto";
+import {
+    ListUserQueryDto,
+    PaginatedUserListDto,
+    UserListItemDto,
+    UpdateProfileDto,
+    CreateUserDto,
+    UpdateUserDto,
+    UpdateStatusDto,
+    SoftDeleteUserDto,
+    ResetPasswordDto,
+    UserStatsDto
+} from "./user.dto";
 import bcrypt from "bcrypt";
 import { sendWelcomeStaffMail } from "../../services/mail.service";
 
@@ -94,7 +105,7 @@ export class UserService {
         }
         const updateData: any = {};
         if (dto.name !== undefined) updateData.name = dto.name;
-        
+
         if (dto.phone !== undefined) {
             if (dto.phone !== null && dto.phone !== "") {
                 const phoneExisted = await this.userRepository.findByPhone(dto.phone);
@@ -106,7 +117,7 @@ export class UserService {
                 updateData.phone = null;
             }
         }
-        
+
         if (dto.dateOfBirth !== undefined) {
             updateData.dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : null;
         }
@@ -214,7 +225,7 @@ export class UserService {
         }
         const updateData: any = {};
         if (dto.name !== undefined) updateData.name = dto.name;
-        
+
         if (dto.phone !== undefined) {
             if (dto.phone !== null && dto.phone !== "") {
                 const phoneExisted = await this.userRepository.findByPhone(dto.phone);
@@ -284,7 +295,7 @@ export class UserService {
 
     //8.Admin/Staff khóa mềm tài khoản người dùng (soft delete)
     public async softDeleteUser(actorRole: string, userId: number, dto: SoftDeleteUserDto): Promise<UserListItemDto> {
-          return await this.updateUserStatus(actorRole, userId, { status: dto.status });
+        return await this.updateUserStatus(actorRole, userId, { status: UserStatus.DELETED });
     }
 
     //9.Admin/Staff reset mat khau nguoi dung
@@ -295,11 +306,11 @@ export class UserService {
         }
 
         const targetUser = await this.userRepository.findById(userId);
-        if(!targetUser) {
+        if (!targetUser) {
             throw new Error("USER_NOT_FOUND");
         }
 
-        if(actorRole === UserRole.STAFF && targetUser.role === UserRole.ADMIN) {
+        if (actorRole === UserRole.STAFF && targetUser.role === UserRole.ADMIN) {
             throw new Error("FORBIDDEN");
         }
 
@@ -310,5 +321,15 @@ export class UserService {
         });
 
         return mapRow(updated);
+    }
+
+    // 9.Api dashboard thong ke so luong nguoi dung theo tung role
+    public async getUserStats(actorRole: string): Promise<UserStatsDto> {
+        const allowed: UserRole[] = [UserRole.ADMIN, UserRole.STAFF];
+        if (!allowed.includes(actorRole as UserRole)) {
+            throw new Error("FORBIDDEN");
+        }
+
+        return await this.userRepository.getUserStats();
     }
 }
