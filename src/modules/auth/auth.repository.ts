@@ -36,7 +36,7 @@ export class AuthRepository {
         return this.prisma.user.findUnique({ where: { googleId } });
     }
 
-    public async linkGoogleAccount(userId: string, googleId: string): Promise<User> {
+    public async linkGoogleAccount(userId: number, googleId: string): Promise<User> {
         return this.prisma.user.update({
             where: { id: userId },
             data: { googleId },

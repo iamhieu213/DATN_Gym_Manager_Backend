@@ -45,7 +45,7 @@ export class OtpRepository {
         });
     }
 
-    public async markOtpUsed(otpId: string): Promise<void> {
+    public async markOtpUsed(otpId: number): Promise<void> {
         await this.prisma.otpVerification.update({
             where: { id: otpId },
             data: { isUsed: true },

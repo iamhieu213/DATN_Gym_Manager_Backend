@@ -16,25 +16,72 @@ const mapErrorStatus = (code:string) : number => {
         case "INVALID_REGISTER_TOKEN":
         case "TOKEN_EMAIL_MISMATCH":
         case "REGISTER_TOKEN_EXPIRED":
+        case "PASSWORD_MISMATCH":
+        case "MISSING_REQUIRED_FIELDS":
             return 400;
         case "INVALID_CREDENTIALS":
+        case "UNAUTHORIZED":
             return 401;
+        case "FORBIDDEN":
+            return 403;
+        case "USER_NOT_FOUND":
+            return 404;
         default:
             return 500;
     }
 }
 
+const mapErrorMessage = (code: string): string => {
+    switch (code) {
+        case "EMAIL_ALREADY_EXISTS":
+            return "Email này đã được sử dụng bởi một tài khoản khác.";
+        case "OTP_INVALID_OR_EXPIRED":
+            return "Mã OTP không chính xác hoặc đã hết hạn.";
+        case "INVALID_REGISTER_TOKEN":
+            return "Token đăng ký không hợp lệ.";
+        case "TOKEN_EMAIL_MISMATCH":
+            return "Token đăng ký không khớp với email cung cấp.";
+        case "REGISTER_TOKEN_EXPIRED":
+            return "Token đăng ký đã hết hạn.";
+        case "INVALID_CREDENTIALS":
+            return "Email hoặc mật khẩu không chính xác.";
+        case "UNAUTHORIZED":
+            return "Bạn chưa đăng nhập hoặc token đã hết hạn.";
+        case "FORBIDDEN":
+            return "Bạn không có quyền thực hiện thao tác này.";
+        case "USER_NOT_FOUND":
+            return "Không tìm thấy người dùng này trong hệ thống.";
+        case "PASSWORD_MISMATCH":
+            return "Mật khẩu mới và xác nhận mật khẩu không khớp nhau.";
+        case "INVALID_OLD_PASSWORD":
+            return "Mật khẩu cũ không chính xác.";
+        case "MISSING_REQUIRED_FIELDS":
+            return "Vui lòng điền đầy đủ các thông tin bắt buộc.";
+        case "BAD_REQUEST":
+            return "Yêu cầu không hợp lệ.";
+        default:
+            return "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.";
+    }
+};
+
 export const register = async (req: Request, res: Response) => {
     try {
         const result = await authService.register(req.body);
         res.status(201).json({
-            email: result.email,
-            registerToken: result.registerToken,
-            message: "Ma OTP da duoc gui toi email cua ban, vui long kiem tra email va xac thuc"
+            success: true,
+            message: "Mã OTP đã được gửi tới email của bạn, vui lòng kiểm tra email và xác thực.",
+            data: {
+                email: result.email,
+                registerToken: result.registerToken
+            }
         });
-    }catch(error) {
-        const code = error instanceof Error ? error.message: "INTERNAL_SERVER_ERROR";
-        res.status(mapErrorStatus(code)).json({ error: code });
+    } catch(error) {
+        const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+        res.status(mapErrorStatus(code)).json({
+            success: false,
+            message: mapErrorMessage(code),
+            error: code
+        });
     }
 }
 
@@ -42,23 +89,36 @@ export const verifyRegister = async (req: Request, res: Response) => {
     try {
         const result = await authService.verifyRegister(req.body);
         res.status(200).json({
-            result,
-            message: "Xac thuc thanh cong"
+            success: true,
+            message: "Xác thực đăng ký tài khoản thành công.",
+            data: result
         });
-    }catch(error) {
-        const code = error instanceof Error ? error.message: "INTERNAL_SERVER_ERROR";
-        res.status(mapErrorStatus(code)).json({ error: code});
+    } catch(error) {
+        const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+        res.status(mapErrorStatus(code)).json({
+            success: false,
+            message: mapErrorMessage(code),
+            error: code
+        });
     }
 }
 
 //Dang nhap
 export const login = async (req: Request, res: Response) => {
-    try{
+    try {
         const result = await authService.login(req.body);
-        res.status(200).json({result});
-    }catch(error) {
-        const code = error instanceof Error ? error.message: "INTERNAL_SERVER_ERROR";
-        res.status(mapErrorStatus(code)).json({ error: code});
+        res.status(200).json({
+            success: true,
+            message: "Đăng nhập thành công.",
+            data: result
+        });
+    } catch(error) {
+        const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+        res.status(mapErrorStatus(code)).json({
+            success: false,
+            message: mapErrorMessage(code),
+            error: code
+        });
     }
 }
 
@@ -66,10 +126,18 @@ export const login = async (req: Request, res: Response) => {
 export const refreshAccessToken = async (req: Request, res: Response) => {
     try {
         const result = await authService.refreshAccessToken(req.body.refreshToken);
-        res.status(200).json({result});
-    }catch(error) {
-        const code = error instanceof Error ? error.message: "INTERNAL_SERVER_ERROR";
-        res.status(mapErrorStatus(code)).json({ error: code});
+        res.status(200).json({
+            success: true,
+            message: "Làm mới access token thành công.",
+            data: result
+        });
+    } catch(error) {
+        const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+        res.status(mapErrorStatus(code)).json({
+            success: false,
+            message: mapErrorMessage(code),
+            error: code
+        });
     }
 }
 
@@ -77,10 +145,18 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
 export const logout = async (req: Request, res: Response) => {
     try {
         await authService.logout(req.body.refreshToken);
-        res.status(200).json({ message: "Dang xuat thanh cong" });
-    }catch(error) {
-        const code = error instanceof Error ? error.message: "INTERNAL_SERVER_ERROR";
-        res.status(mapErrorStatus(code)).json({ error: code});
+        res.status(200).json({
+            success: true,
+            message: "Đăng xuất thành công.",
+            data: null
+        });
+    } catch(error) {
+        const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+        res.status(mapErrorStatus(code)).json({
+            success: false,
+            message: mapErrorMessage(code),
+            error: code
+        });
     }
 }
 
@@ -91,46 +167,76 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
             throw new Error("UNAUTHORIZED");
         }
         await authService.ChangePassword(req.user.userId, req.body);
-        res.status(200).json({ message: "Mat khau da duoc doi thanh cong" });
-    }catch(error) {
-        const code = error instanceof Error ? error.message: "INTERNAL_SERVER_ERROR";
-        res.status(mapErrorStatus(code)).json({ error: code});
+        res.status(200).json({
+            success: true,
+            message: "Đổi mật khẩu thành công.",
+            data: null
+        });
+    } catch(error) {
+        const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+        res.status(mapErrorStatus(code)).json({
+            success: false,
+            message: mapErrorMessage(code),
+            error: code
+        });
     }
 }
 
 //Api quen mat khau
 //1.Gui ma Otp xac thuc
 export const requestForgotPasswordOtp = async (req: Request, res: Response) => {
-    try{
+    try {
         await authService.requestForgotPasswordOtp(req.body.email);
-        res.status(200).json({ message: "Ma OTP da duoc gui toi email cua ban, vui long kiem tra email va xac thuc" });
-    }catch(error) {
-        const code = error instanceof Error ? error.message: "INTERNAL_SERVER_ERROR";
-        res.status(mapErrorStatus(code)).json({ error: code});
+        res.status(200).json({
+            success: true,
+            message: "Mã OTP đã được gửi tới email của bạn, vui lòng kiểm tra email và xác thực.",
+            data: null
+        });
+    } catch(error) {
+        const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+        res.status(mapErrorStatus(code)).json({
+            success: false,
+            message: mapErrorMessage(code),
+            error: code
+        });
     }
 }
 //2. Xac thuc ma Otp
 export const verifyForgotPasswordOtp = async (req: Request, res: Response) => {
-    try{
+    try {
         const result = await authService.verifyForgotPasswordOtp(req.body);
         res.status(200).json({
-            resetPasswordToken: result.resetPasswordToken,
-            message: "Ma OTP da duoc xac thuc thanh cong, vui long dung token nay de thay doi mat khau"
-        })
-
-    }catch(error) {
-        const code = error instanceof Error ? error.message: "INTERNAL_SERVER_ERROR";
-        res.status(mapErrorStatus(code)).json({ error: code});
+            success: true,
+            message: "Xác thực mã OTP thành công. Vui lòng dùng token này để thay đổi mật khẩu.",
+            data: {
+                resetPasswordToken: result.resetPasswordToken
+            }
+        });
+    } catch(error) {
+        const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+        res.status(mapErrorStatus(code)).json({
+            success: false,
+            message: mapErrorMessage(code),
+            error: code
+        });
     }
 }
 //3 Thay doi mat khau
 export const resetPassword = async (req: Request, res: Response) => {
-    try{
+    try {
         await authService.resetPassword(req.body);
-        res.status(200).json({ message: "Mat khau da duoc thay doi thanh cong" });
-    }catch(error){
-        const code = error instanceof Error ? error.message: "INTERNAL_SERVER_ERROR";
-        res.status(mapErrorStatus(code)).json({ error: code});
+        res.status(200).json({
+            success: true,
+            message: "Mật khẩu đã được thay đổi thành công.",
+            data: null
+        });
+    } catch(error) {
+        const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+        res.status(mapErrorStatus(code)).json({
+            success: false,
+            message: mapErrorMessage(code),
+            error: code
+        });
     }
 }
 

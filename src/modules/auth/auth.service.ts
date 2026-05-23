@@ -89,6 +89,12 @@ export class AuthService {
             throw new Error("EMAIL_ALREADY_EXISTS");
         }
 
+        const existedPhoneUser = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
+
+        if(existedPhoneUser) {
+            throw new Error("PHONE_ALREADY_EXISTS");
+        }
+        
         const passwordHash = await bcrypt.hash(dto.password , 10);
         const otpCode = this.generateOtpCode();
         const expiresAt = new Date(Date.now() + OTP_EXPIRES_IN_MINUTES * 60 * 1000);
@@ -115,7 +121,7 @@ export class AuthService {
     }
 
     //Xac thuc dang ky
-    public async verifyRegister(dto: VerifyOtpDto): Promise<{ id : string, email: string }>{
+    public async verifyRegister(dto: VerifyOtpDto): Promise<{ id : number, email: string }>{
           const email = dto.email.trim().toLowerCase();
           const payload = this.verifyRegisterToken(dto.registerToken);
 
@@ -274,7 +280,7 @@ export class AuthService {
     }
 
     //Api doi mat khau
-    public async ChangePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+    public async ChangePassword(userId: number, dto: ChangePasswordDto): Promise<void> {
         if(!dto.oldPassword || !dto.newPassword || !dto.confirmNewPassword) {
             throw new Error("MISSING_REQUIRED_FIELDS");
         }
@@ -398,7 +404,7 @@ export class AuthService {
 
     //Api dang nhap google
     private async issuseAuthTokensForUser(user: {
-        id: string;
+        id: number;
         role: import('@prisma/client').UserRole;
     }): Promise<{ accessToken: string, refreshToken: string }> {
         const accessToken = signAccessToken({ userId: user.id, role: user.role });

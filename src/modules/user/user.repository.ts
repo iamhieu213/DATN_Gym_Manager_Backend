@@ -51,4 +51,37 @@ export class UserRepository {
 
           return { rows, total };
     }
+
+    //Tim kiem user theo Id
+    public async findById(id : number): Promise<UserListRow | null> {
+        return this.prisma.user.findUnique({
+            where : { id },
+            select : userListSelect, 
+        });
+    }
+    //Time kiem user theo email
+    public async findByEmail(email : string): Promise<UserListRow | null> {
+        return this.prisma.user.findUnique({ where : { email }, select : userListSelect });
+    }
+
+    //Time kiem user theo phone
+    public async findByPhone(phone : string): Promise<UserListRow | null> {
+        return this.prisma.user.findUnique({ where : { phone }, select : userListSelect });
+    }
+
+    // 3. Tạo mới user vào DB
+    public async create(data: Prisma.UserCreateInput): Promise<UserListRow> {
+        return this.prisma.user.create({
+            data,
+            select: userListSelect,
+        });
+    }
+    // 4. Cập nhật thông tin user
+    public async update(id: number, data: Prisma.UserUpdateInput): Promise<UserListRow> {
+        return this.prisma.user.update({
+            where: { id },
+            data,
+            select: userListSelect,
+        });
+    }
 }

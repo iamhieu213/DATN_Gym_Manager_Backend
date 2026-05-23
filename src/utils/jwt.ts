@@ -3,12 +3,12 @@ import "dotenv/config";
 import { UserRole } from "@prisma/client";
 
 export interface AccessTokenPayload {
-  userId: string;
+  userId: number;
   role: UserRole;
 }
 
 export interface RefreshTokenPayload {
-  userId: string;
+  userId: number;
   tokenId: string;
 }
 
@@ -46,7 +46,7 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
   const decoded = jwt.verify(token, getAccessSecret()) as jwt.JwtPayload &
     Partial<AccessTokenPayload>;
 
-  if (typeof decoded.userId !== "string" || typeof decoded.role !== "string") {
+  if (typeof decoded.userId !== "number" || typeof decoded.role !== "string") {
     throw new Error("INVALID_ACCESS_TOKEN_PAYLOAD");
   }
 
@@ -67,7 +67,7 @@ export function verifyRefreshToken(token: string): RefreshTokenPayload {
     Partial<RefreshTokenPayload>;
 
   if (
-    typeof decoded.userId !== "string" ||
+    typeof decoded.userId !== "number" ||
     typeof decoded.tokenId !== "string"
   ) {
     throw new Error("INVALID_REFRESH_TOKEN_PAYLOAD");

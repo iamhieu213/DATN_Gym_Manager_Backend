@@ -9,7 +9,7 @@ export interface ListUserQueryDto {
 }
 
 export interface UserListItemDto {
-    id: string;
+    id: number;
     email: string;
     name: string;
     phone: string;
@@ -28,4 +28,35 @@ export interface PaginatedUserListDto {
         total: number;
         totalPages: number;
     };
+}
+
+//Cap nhat thong tin ca nhan
+export interface UpdateProfileDto {
+    name?: string;
+    phone?: string;
+    dateOfBirth?: Date;
+}
+
+//DTO cho ADMIN/STAFF tao tai khoan moi 
+export interface CreateUserDto {
+    email: string;
+    password?: string;
+    name: string;
+    phone?: string;
+    dateOfBirth?: Date;
+    role?: UserRole;
+    status?: UserStatus;
+}
+
+//Cap nhat thong tin nguoi dung bat ky (ADMIN/STAFF)
+export interface UpdateUserDto {
+    name?: string;
+    phone?: string;
+    dateOfBirth?: Date;
+    role?: UserRole;
+}
+
+//Cap nhat trang thai rieng cua nguoi dung
+export interface UpdateStatusDto {
+    status : UserStatus;
 }
