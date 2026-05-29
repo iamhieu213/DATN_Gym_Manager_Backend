@@ -1,4 +1,4 @@
-import {  Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { prisma } from '../../config/client';
 import { AuthRequest } from '../../middleware/auth.middleware';
@@ -8,8 +8,8 @@ const OAUTH_STATE_COOKIE = "oauth_state";
 const STATE_MAX_AGE_MS = 10 * 60 * 1000; // 30 days
 
 const authService = new AuthService(prisma);
-const mapErrorStatus = (code:string) : number => {
-    switch(code) {
+const mapErrorStatus = (code: string): number => {
+    switch (code) {
         case "EMAIL_ALREADY_EXISTS":
             return 409;
         case "OTP_INVALID_OR_EXPIRED":
@@ -26,6 +26,9 @@ const mapErrorStatus = (code:string) : number => {
             return 403;
         case "USER_NOT_FOUND":
             return 404;
+        case "LOGIN_LOCKED":
+        case "OTP_LIMIT_EXCEEDED":
+            return 429;
         default:
             return 500;
     }
@@ -59,6 +62,10 @@ const mapErrorMessage = (code: string): string => {
             return "Vui lòng điền đầy đủ các thông tin bắt buộc.";
         case "BAD_REQUEST":
             return "Yêu cầu không hợp lệ.";
+        case "LOGIN_LOCKED":
+            return "Tài khoản của bạn đã bị khóa tạm thời trong 15 phút do nhập sai mật khẩu quá 5 lần.";
+        case "OTP_LIMIT_EXCEEDED":
+            return "Bạn đã yêu cầu gửi mã OTP quá giới hạn (tối đa 3 lần trong 15 phút). Vui lòng thử lại sau.";
         default:
             return "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.";
     }
@@ -75,7 +82,7 @@ export const register = async (req: Request, res: Response) => {
                 registerToken: result.registerToken
             }
         });
-    } catch(error) {
+    } catch (error) {
         const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
         res.status(mapErrorStatus(code)).json({
             success: false,
@@ -93,7 +100,7 @@ export const verifyRegister = async (req: Request, res: Response) => {
             message: "Xác thực đăng ký tài khoản thành công.",
             data: result
         });
-    } catch(error) {
+    } catch (error) {
         const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
         res.status(mapErrorStatus(code)).json({
             success: false,
@@ -112,7 +119,7 @@ export const login = async (req: Request, res: Response) => {
             message: "Đăng nhập thành công.",
             data: result
         });
-    } catch(error) {
+    } catch (error) {
         const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
         res.status(mapErrorStatus(code)).json({
             success: false,
@@ -131,7 +138,7 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
             message: "Làm mới access token thành công.",
             data: result
         });
-    } catch(error) {
+    } catch (error) {
         const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
         res.status(mapErrorStatus(code)).json({
             success: false,
@@ -150,7 +157,7 @@ export const logout = async (req: Request, res: Response) => {
             message: "Đăng xuất thành công.",
             data: null
         });
-    } catch(error) {
+    } catch (error) {
         const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
         res.status(mapErrorStatus(code)).json({
             success: false,
@@ -163,7 +170,7 @@ export const logout = async (req: Request, res: Response) => {
 //Api doi mat khau
 export const changePassword = async (req: AuthRequest, res: Response) => {
     try {
-        if(!req.user?.userId) {
+        if (!req.user?.userId) {
             throw new Error("UNAUTHORIZED");
         }
         await authService.ChangePassword(req.user.userId, req.body);
@@ -172,7 +179,7 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
             message: "Đổi mật khẩu thành công.",
             data: null
         });
-    } catch(error) {
+    } catch (error) {
         const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
         res.status(mapErrorStatus(code)).json({
             success: false,
@@ -192,7 +199,7 @@ export const requestForgotPasswordOtp = async (req: Request, res: Response) => {
             message: "Mã OTP đã được gửi tới email của bạn, vui lòng kiểm tra email và xác thực.",
             data: null
         });
-    } catch(error) {
+    } catch (error) {
         const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
         res.status(mapErrorStatus(code)).json({
             success: false,
@@ -212,7 +219,7 @@ export const verifyForgotPasswordOtp = async (req: Request, res: Response) => {
                 resetPasswordToken: result.resetPasswordToken
             }
         });
-    } catch(error) {
+    } catch (error) {
         const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
         res.status(mapErrorStatus(code)).json({
             success: false,
@@ -230,7 +237,7 @@ export const resetPassword = async (req: Request, res: Response) => {
             message: "Mật khẩu đã được thay đổi thành công.",
             data: null
         });
-    } catch(error) {
+    } catch (error) {
         const code = error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
         res.status(mapErrorStatus(code)).json({
             success: false,
@@ -252,46 +259,46 @@ function getOAuthSuccessRedirectUrl(): string | null {
 
 export const googleAuthStart = (req: Request, res: Response) => {
     try {
-      const state = crypto.randomBytes(32).toString("hex");
-      res.cookie(OAUTH_STATE_COOKIE, state, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: STATE_MAX_AGE_MS,
-      });
-      const url = authService.getGoogleAuthRedirectUrl(state);
-      res.redirect(url);
+        const state = crypto.randomBytes(32).toString("hex");
+        res.cookie(OAUTH_STATE_COOKIE, state, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: STATE_MAX_AGE_MS,
+        });
+        const url = authService.getGoogleAuthRedirectUrl(state);
+        res.redirect(url);
     } catch {
-      const errUrl = getOAuthErrorRedirectUrl();
-      if (!errUrl) {
-        return res.status(500).send("FRONTEND_OAUTH_ERROR_URL is not set (and Google OAuth config failed). Check GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL.");
-      }
-      res.redirect(`${errUrl}?reason=config`);
+        const errUrl = getOAuthErrorRedirectUrl();
+        if (!errUrl) {
+            return res.status(500).send("FRONTEND_OAUTH_ERROR_URL is not set (and Google OAuth config failed). Check GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL.");
+        }
+        res.redirect(`${errUrl}?reason=config`);
     }
-  };
-  
-  export const googleAuthCallback = async (req: Request, res: Response) => {
+};
+
+export const googleAuthCallback = async (req: Request, res: Response) => {
     const errUrl = getOAuthErrorRedirectUrl();
     const okUrl = getOAuthSuccessRedirectUrl();
     if (!errUrl || !okUrl) {
-      return res.status(500).send("Set FRONTEND_OAUTH_SUCCESS_URL and FRONTEND_OAUTH_ERROR_URL in .env (full URLs, e.g. http://localhost:3000/oauth/success).");
+        return res.status(500).send("Set FRONTEND_OAUTH_SUCCESS_URL and FRONTEND_OAUTH_ERROR_URL in .env (full URLs, e.g. http://localhost:3000/oauth/success).");
     }
     try {
-      const code = req.query.code as string | undefined;
-      const state = req.query.state as string | undefined;
-      const cookieState = req.cookies?.[OAUTH_STATE_COOKIE] as string | undefined;
-      if (!code || !state || !cookieState || state !== cookieState) {
+        const code = req.query.code as string | undefined;
+        const state = req.query.state as string | undefined;
+        const cookieState = req.cookies?.[OAUTH_STATE_COOKIE] as string | undefined;
+        if (!code || !state || !cookieState || state !== cookieState) {
+            res.clearCookie(OAUTH_STATE_COOKIE);
+            return res.redirect(`${errUrl}?reason=state`);
+        }
         res.clearCookie(OAUTH_STATE_COOKIE);
-        return res.redirect(`${errUrl}?reason=state`);
-      }
-      res.clearCookie(OAUTH_STATE_COOKIE);
-      const result = await authService.loginWithGoogleOAuthCode(code);
-      const q = new URLSearchParams({
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
-      });
-      return res.redirect(`${okUrl}?${q.toString()}`);
+        const result = await authService.loginWithGoogleOAuthCode(code);
+        const q = new URLSearchParams({
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken,
+        });
+        return res.redirect(`${okUrl}?${q.toString()}`);
     } catch {
-      return res.redirect(`${errUrl}?reason=google`);
+        return res.redirect(`${errUrl}?reason=google`);
     }
-  };
+};

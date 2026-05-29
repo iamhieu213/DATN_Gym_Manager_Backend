@@ -28,11 +28,6 @@ enum Gender {
   OTHER
 }
 
-enum OtpType {
-  REGISTER
-  FORGOT_PASSWORD
-  VERIFY_EMAIL
-}
 
 model User {
   id                Int          @id @default(autoincrement())
@@ -58,58 +53,9 @@ model User {
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")
 
-  refreshTokens     RefreshToken[]
-  otpVerifications  OtpVerification[]
-
   @@map("users")
 
   @@index([email])
   @@index([role, status])
 }
 
-model RefreshToken {
-  id          Int       @id @default(autoincrement())
-
-  userId      Int       @map("user_id")
-
-  token       String    @unique @db.Text
-  tokenId     String    @unique @map("token_id") @db.Uuid
-
-  expiresAt   DateTime  @map("expires_at")
-  isRevoked   Boolean   @default(false) @map("is_revoked")
-
-  createdAt   DateTime  @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("refresh_tokens")
-
-  @@index([userId])
-  @@index([expiresAt])
-  @@index([isRevoked])
-}
-
-model OtpVerification {
-  id          Int       @id @default(autoincrement())
-
-  userId      Int?      @map("user_id")
-
-  email       String    @db.VarChar(255)
-
-  otpCode     String    @map("otp_code") @db.VarChar(20)
-
-  type        OtpType
-
-  expiresAt   DateTime  @map("expires_at")
-
-  isUsed      Boolean   @default(false) @map("is_used")
-
-  createdAt   DateTime  @default(now()) @map("created_at")
-
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@map("otp_verifications")
-
-  @@index([email, type, isUsed, expiresAt])
-  @@index([userId])
-}
