@@ -55,7 +55,7 @@ model User {
 
   memberships       Membership[]
   payments          Payment[]
-
+  checkIns          CheckIn[]
   @@map("users")
 
   @@index([email])
@@ -133,3 +133,12 @@ model Payment {
   @@index([plan_id])
 }
 
+model CheckIn {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  checkInAt  DateTime @default(now()) @map("check_in_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("check_ins")
+  @@index([userId])
+  @@index([checkInAt])
+}
