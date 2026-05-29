@@ -53,9 +53,83 @@ model User {
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")
 
+  memberships       Membership[]
+  payments          Payment[]
+
   @@map("users")
 
   @@index([email])
   @@index([role, status])
+}
+
+enum MembershipStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  PENDING
+  UPGRADED
+}
+enum PaymentMethod {
+  CASH
+  VNPAY
+  MOMO
+  BANK_TRANSFER
+}
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+model Plan {
+  id            Int          @id @default(autoincrement())
+  name          String       @db.VarChar(255)
+  description   String?      @db.Text
+  price         Decimal      @db.Decimal(12, 2)
+  duration_days Int          @map("duration_days")
+  features      Json?        @default("[]")
+  is_active     Boolean      @default(true) @map("is_active")
+  created_at    DateTime     @default(now()) @map("created_at")
+  updated_at    DateTime     @updatedAt @map("updated_at")
+  memberships   Membership[]
+  payments      Payment[]
+  @@map("plans")
+}
+model Membership {
+  id         Int              @id @default(autoincrement())
+  user_id    Int              @map("user_id") // Khớp với kiểu Int của User.id
+  plan_id    Int              @map("plan_id") // Đổi sang Int
+  start_date DateTime         @map("start_date") @db.Date
+  end_date   DateTime         @map("end_date") @db.Date
+  status     MembershipStatus @default(ACTIVE)
+  is_active  Boolean          @default(true) @map("is_active")
+  created_at DateTime         @default(now()) @map("created_at")
+  updated_at DateTime         @updatedAt @map("updated_at")
+  user       User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  plan       Plan             @relation(fields: [plan_id], references: [id], onDelete: Restrict)
+  payments   Payment[]
+  @@map("memberships")
+  @@index([user_id])
+  @@index([plan_id])
+}
+model Payment {
+  id              Int           @id @default(autoincrement())
+  user_id         Int           @map("user_id") // Khớp với kiểu Int của User.id
+  membership_id   Int           @map("membership_id") // Đổi sang Int
+  plan_id         Int           @map("plan_id") // Đổi sang Int
+  amount          Decimal       @db.Decimal(12, 2)
+  method          PaymentMethod
+  status          PaymentStatus @default(PENDING)
+  transaction_ref String?       @map("transaction_ref") @db.VarChar(255)
+  gateway_response Json?        @map("gateway_response")
+  paid_at         DateTime?     @map("paid_at")
+  created_at      DateTime      @default(now()) @map("created_at")
+  user            User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  membership      Membership    @relation(fields: [membership_id], references: [id], onDelete: Cascade)
+  plan            Plan          @relation(fields: [plan_id], references: [id], onDelete: Restrict)
+  @@map("payments")
+  @@index([user_id])
+  @@index([membership_id])
+  @@index([plan_id])
 }
 
