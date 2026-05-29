@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import authRoutes from './modules/auth/auth.route';
 import userRoutes from './modules/user/user.route';
+import planRoutes from './modules/plans/plans.routes'
 import cookieParser from 'cookie-parser';
 const app = express();
 
@@ -26,5 +27,6 @@ app.get('/oauth/error', (req, res) => {
 
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
+app.use("/plan", planRoutes);
 
 export default app;
