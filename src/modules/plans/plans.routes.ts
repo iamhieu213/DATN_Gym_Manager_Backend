@@ -12,7 +12,7 @@ import {
 const router = Router();
 
 // Yêu cầu đăng nhập trước khi truy cập
-// router.use(authMiddleware);
+router.use(authMiddleware);
 
 // --- APIs Public (Hội viên / Nhân viên đều xem được) ---
 router.get("/", getAllPlans);          // GET /plans (lấy danh sách)
