@@ -41,6 +41,34 @@ export const getCoach = async (req: Request, res: Response) => {
     }
 };
 
+export const getMyProfile = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        const role = req.user?.role;
+        // Chỉ cho phép tài khoản có vai trò COACH truy cập
+        if (!userId || role !== 'COACH') throw new Error("FORBIDDEN");
+        const result = await coachService.getMyProfile(userId);
+        res.status(200).json({ success: true, data: result });
+    } catch (e: any) {
+        const error = mapError(e.message);
+        res.status(error.status).json({ success: false, message: error.message });
+    }
+};
+
+export const getMyAvailability = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        const role = req.user?.role;
+        // Chỉ cho phép tài khoản có vai trò COACH truy cập
+        if (!userId || role !== 'COACH') throw new Error("FORBIDDEN");
+        const result = await coachService.getMyAvailability(userId);
+        res.status(200).json({ success: true, data: result });
+    } catch (e: any) {
+        const error = mapError(e.message);
+        res.status(error.status).json({ success: false, message: error.message });
+    }
+};
+
 export const updateMyProfile = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user?.userId;

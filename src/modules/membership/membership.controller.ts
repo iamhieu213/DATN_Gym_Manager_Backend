@@ -99,10 +99,17 @@ export const handleVnpayIpn = async (req: Request, res: Response) => {
                     where: { id: paymentId },
                     data: { status: "FAILED", gateway_response: vnp_Params }
                 });
-                await tx.membership.update({
-                    where: { id: payment.membership_id },
-                    data: { status: "CANCELLED" }
-                });
+                if (payment.membership_id) {
+                    await tx.membership.update({
+                        where: { id: payment.membership_id },
+                        data: { status: "CANCELLED" }
+                    });
+                } else if (payment.coach_assignment_id) {
+                    await tx.coachAssignment.update({
+                        where: { id: payment.coach_assignment_id },
+                        data: { status: "CANCELLED" }
+                    });
+                }
             });
             
             return res.status(200).json({ RspCode: "00", Message: "Confirm success (Failed Payment)" });
@@ -372,10 +379,17 @@ export const handleVnpayReturn = async (req: Request, res: Response) => {
                         where: { id: paymentId },
                         data: { status: "FAILED", gateway_response: vnp_Params }
                     });
-                    await tx.membership.update({
-                        where: { id: payment.membership_id },
-                        data: { status: "CANCELLED" }
-                    });
+                    if (payment.membership_id) {
+                        await tx.membership.update({
+                            where: { id: payment.membership_id },
+                            data: { status: "CANCELLED" }
+                        });
+                    } else if (payment.coach_assignment_id) {
+                        await tx.coachAssignment.update({
+                            where: { id: payment.coach_assignment_id },
+                            data: { status: "CANCELLED" }
+                        });
+                    }
                 });
                 console.log(`[VNPAY Return] Giao dịch thất bại, đã hủy đơn hàng ID: ${paymentId}`);
             }

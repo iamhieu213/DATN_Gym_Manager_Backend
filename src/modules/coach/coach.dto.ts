@@ -20,4 +20,5 @@ export interface ListCoachQueryDto {
     search? : string;
     page? : string;
     limit? : string;
+    slots? : string; // Chuỗi JSON chứa mảng các khung giờ: [{"dayOfWeek":1,"startTime":"18:00","endTime":"20:00"}]
 }

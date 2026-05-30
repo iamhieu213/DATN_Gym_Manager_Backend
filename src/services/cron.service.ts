@@ -23,7 +23,12 @@ export const startCleanupCron = () => {
 
             if (expiredPayments.length > 0) {
                 const paymentIds = expiredPayments.map((p) => p.id);
-                const membershipIds = expiredPayments.map((p) => p.membership_id);
+                const membershipIds = expiredPayments
+                    .map((p) => p.membership_id)
+                    .filter((id): id is number => id !== null);
+                const coachAssignmentIds = expiredPayments
+                    .map((p) => p.coach_assignment_id)
+                    .filter((id): id is number => id !== null);
 
                 // 2. Thực hiện xóa cứng (Hard Delete) khỏi database trong 1 Transaction
                 await prisma.$transaction([
@@ -32,10 +37,13 @@ export const startCleanupCron = () => {
                     }),
                     prisma.membership.deleteMany({
                         where: { id: { in: membershipIds } }
+                    }),
+                    prisma.coachAssignment.deleteMany({
+                        where: { id: { in: coachAssignmentIds } }
                     })
                 ]);
 
-                console.log(`[Cron Job] Đã xóa thành công ${expiredPayments.length} hóa đơn và gói tập hết hạn khỏi hệ thống.`);
+                console.log(`[Cron Job] Đã xóa thành công ${expiredPayments.length} hóa đơn và gói tập/PT hết hạn khỏi hệ thống.`);
             } else {
                 console.log("[Cron Job] Không có hóa đơn nào quá hạn.");
             }

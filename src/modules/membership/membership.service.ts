@@ -119,31 +119,55 @@ export class MembershipsService {
             throw new Error("PAYMENT_ALREADY_PROCESSED");
         }
 
-        const { payment: updatedPayment, membership } = await this.repository.activateMembershipPayment(
-            paymentId,
-            transactionRef ?? `CASH_CONFIRMED_BY_${role}`,
-            gatewayResponse ?? { confirmedBy: role }
-        );
+        if (payment.membership_id) {
+            const { payment: updatedPayment, membership } = await this.repository.activateMembershipPayment(
+                paymentId,
+                transactionRef ?? `CASH_CONFIRMED_BY_${role}`,
+                gatewayResponse ?? { confirmedBy: role }
+            );
 
-        // --- LƯU THÔNG TIN GÓI TẬP ACTIVE LÊN REDIS (Để điểm danh/check-in) ---
-        const redisKey = redisService.key("membership:active", updatedPayment.user_id);
-        const ttlInSeconds = Math.floor((membership.end_date.getTime() - Date.now()) / 1000);
+            // --- LƯU THÔNG TIN GÓI TẬP ACTIVE LÊN REDIS (Để điểm danh/check-in) ---
+            const redisKey = redisService.key("membership:active", updatedPayment.user_id);
+            const ttlInSeconds = Math.floor((membership.end_date.getTime() - Date.now()) / 1000);
 
-        if (ttlInSeconds > 0) {
-            const cacheValue = {
-                membershipId: membership.id,
-                planId: membership.plan_id,
-                planName: membership.plan.name,
-                startDate: membership.start_date,
-                endDate: membership.end_date
+            if (ttlInSeconds > 0) {
+                const cacheValue = {
+                    membershipId: membership.id,
+                    planId: membership.plan_id,
+                    planName: (membership as any).plan.name,
+                    startDate: membership.start_date,
+                    endDate: membership.end_date
+                };
+                await redisService.set(redisKey, JSON.stringify(cacheValue), ttlInSeconds);
+            }
+
+            return {
+                payment: updatedPayment,
+                membership
             };
-            await redisService.set(redisKey, JSON.stringify(cacheValue), ttlInSeconds);
-        }
+        } else if (payment.coach_assignment_id) {
+            const ptPackage = await this.repository.findPtPackageByAssignmentId(payment.coach_assignment_id);
+            const durationDays = ptPackage?.durationDays ?? 30;
 
-        return {
-            payment: updatedPayment,
-            membership
-        };
+            const { payment: updatedPayment, assignment } = await this.repository.activatePtPayment(
+                paymentId,
+                transactionRef ?? `CASH_CONFIRMED_BY_${role}`,
+                durationDays,
+                gatewayResponse ?? { confirmedBy: role }
+            );
+
+            // --- LƯU THÔNG TIN GÓI PT ACTIVE LÊN REDIS ---
+            const redisKey = redisService.key("pt_assignment:active", updatedPayment.user_id);
+            const ttlInSeconds = durationDays * 24 * 60 * 60;
+            await redisService.set(redisKey, JSON.stringify(assignment), ttlInSeconds);
+
+            return {
+                payment: updatedPayment,
+                coachAssignment: assignment
+            };
+        } else {
+            throw new Error("INVALID_PAYMENT_TYPE");
+        }
     }
 
     // 4. Hủy gói tập (Xóa cả cache Redis tương ứng)

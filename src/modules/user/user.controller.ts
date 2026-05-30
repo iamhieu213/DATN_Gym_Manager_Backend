@@ -6,7 +6,7 @@ import { ListUserQueryDto, CreateUserDto, UpdateProfileDto, UpdateStatusDto, Upd
 import { UserRepository } from "./user.repository";
 import { uploadToCloudinary } from "../../services/cloudinary.service";
 
-const userService = new UserService(new UserRepository(prisma));
+const userService = new UserService(new UserRepository(prisma), prisma);
 
 const mapErrorStatus = (code: string): number => {
     switch (code) {
@@ -142,7 +142,8 @@ export const updateMyAvatar = async (req: AuthRequest, res: Response) => {
             });
         }
 
-        if (!req.file) {
+        const multerReq = req as any;
+        if (!multerReq.file) {
             return res.status(400).json({
                 success: false,
                 message: "Vui lòng chọn một file ảnh để tải lên.",
@@ -151,7 +152,7 @@ export const updateMyAvatar = async (req: AuthRequest, res: Response) => {
         }
 
         // Upload file buffer lên Cloudinary
-        const avatarUrl = await uploadToCloudinary(req.file.buffer, "gym_avatars");
+        const avatarUrl = await uploadToCloudinary(multerReq.file.buffer, "gym_avatars");
 
         const result = await userService.updateAvatar(req.user.userId, avatarUrl);
         res.status(200).json({
