@@ -14,6 +14,7 @@ import {
 } from "./user.dto";
 import bcrypt from "bcrypt";
 import { sendWelcomeStaffMail } from "../../services/mail.service";
+import { PrismaClient } from "@prisma/client"
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
@@ -43,7 +44,10 @@ function toIso(d: Date | null): string | null {
 }
 
 export class UserService {
-    constructor(private readonly userRepository: UserRepository) { }
+    constructor(
+        private readonly userRepository: UserRepository,
+        private readonly prisma : PrismaClient
+    ) { }
 
     //Hien thi danh sach nguoi dung 
     public async getAllUsers(actorRole: string, query: ListUserQueryDto): Promise<PaginatedUserListDto> {
@@ -200,6 +204,15 @@ export class UserService {
             emergencyContact: dto.emergencyContact || null,
         });
 
+        if(newUser.role === UserRole.COACH){
+            await this.prisma.coachProfile.create({
+                data : {
+                    userId : newUser.id,
+                    isAvailable : true
+                }
+            })
+        }
+
         sendWelcomeStaffMail(newUser.email, newUser.name, newUser.role, password)
             .catch(err => console.error("Lỗi gửi mail chào mừng nhân viên:", err));
 
@@ -259,6 +272,19 @@ export class UserService {
         if (dto.emergencyContact !== undefined) updateData.emergencyContact = dto.emergencyContact;
 
         const updated = await this.userRepository.update(targetId, updateData);
+
+        if(updated.role === UserRole.COACH){
+            //Kiem tra xem PT da co ho so chua, neu co roi thi khong tao lai
+            const existedProfile = await this.prisma.coachProfile.findUnique({ where : { userId: targetId } });
+            if(!existedProfile){
+                await this.prisma.coachProfile.create({
+                    data: {
+                        userId : targetId,
+                        isAvailable : true
+                    }
+                })
+            }
+        }
         return mapRow(updated);
     }
     // 6. ADMIN/STAFF khóa hoặc mở khóa tài khoản
