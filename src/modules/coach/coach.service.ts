@@ -13,7 +13,7 @@ export class CoachService {
 
         const where: any = { isAvailable: true };
 
-        //1.Loc theo dieu kien
+        //1.Loc theo dieu kien goal
         if (query.goal) {
             where.packages = {
                 some: {
@@ -23,6 +23,16 @@ export class CoachService {
                 }
             }
         };
+
+        // Lọc theo gói tập cụ thể
+        if (query.ptPackageId) {
+            where.packages = {
+                some: {
+                    ptPackageId: parseInt(query.ptPackageId, 10),
+                    isActive: true
+                }
+            };
+        }
 
         // 2. Thuật toán: Ghép các PT có lịch trống phù hợp với khung thời gian mong muốn của người dùng
         if (query.slots) {
@@ -68,7 +78,7 @@ export class CoachService {
         //3. tim kiem theo name
         if (query.search) {
             where.user = {
-                name: { constains: query.search, mode: 'insensitive' }
+                name: { contains: query.search, mode: 'insensitive' }
             };
         }
 
