@@ -39,7 +39,12 @@ export class CoachRepository {
                         avatarUrl: true,
                     }
                 },
-                availabilities: true
+                availabilities: true,
+                packages : {
+                    include : {
+                        ptPackage : true
+                    }
+                }
             }
         });
     }

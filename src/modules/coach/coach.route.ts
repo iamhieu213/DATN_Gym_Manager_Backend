@@ -9,7 +9,7 @@ import {
     getMyAvailability
 } from './coach.controller';
 const router = Router();
-router.use(authMiddleware);
+// router.use(authMiddleware);
 // Members & general
 router.get('/', getAllCoaches);
 router.get('/:id', getCoach);
