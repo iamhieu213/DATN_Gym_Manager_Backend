@@ -153,13 +153,18 @@ export class MembershipRepository {
                 }
             });
 
+            const membershipId = payment.membership_id;
+            if (!membershipId) {
+                throw new Error("PAYMENT_NOT_MEMBERSHIP");
+            }
+
             // 1. Tìm gói active hiện tại của user (nếu có) và vô hiệu hóa / chuyển thành UPGRADED
             const activeMembership = await tx.membership.findFirst({
                 where: {
                     user_id: payment.user_id,
                     is_active: true,
                     status: 'ACTIVE',
-                    id: { not: payment.membership_id }
+                    id: { not: membershipId }
                 }
             });
 
@@ -176,7 +181,7 @@ export class MembershipRepository {
 
             // 2. Kích hoạt gói mới
             const membership = await tx.membership.update({
-                where: { id: payment.membership_id },
+                where: { id: membershipId },
                 data: {
                     status: 'ACTIVE',
                     is_active: true
@@ -208,6 +213,46 @@ export class MembershipRepository {
                 plan: true,
                 payments: true
             }
+        });
+    }
+
+    async findPtPackageByAssignmentId(assignmentId: number) {
+        const assignment = await this.prisma.coachAssignment.findUnique({
+            where: { id: assignmentId },
+            include: { ptPackage: true }
+        });
+        return assignment?.ptPackage ?? null;
+    }
+
+    async activatePtPayment(paymentId: number, transactionRef: string, durationDays: number, gatewayResponse: any) {
+        return this.prisma.$transaction(async (tx) => {
+            const payment = await tx.payment.update({
+                where: { id: paymentId },
+                data: {
+                    status: 'PAID',
+                    paid_at: new Date(),
+                    transaction_ref: transactionRef,
+                    gateway_response: gatewayResponse
+                }
+            });
+
+            const startDate = new Date();
+            const endDate = new Date();
+            endDate.setDate(startDate.getDate() + durationDays);
+
+            const assignment = await tx.coachAssignment.update({
+                where: { id: payment.coach_assignment_id! },
+                data: {
+                    status: 'ACTIVE',
+                    startDate,
+                    endDate
+                },
+                include: {
+                    ptPackage: true
+                }
+            });
+
+            return { payment, assignment };
         });
     }
 

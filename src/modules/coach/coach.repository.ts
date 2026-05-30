@@ -89,4 +89,25 @@ export class CoachRepository {
         });
     }
 
+    public async getMyProfile(userId : number) {
+        return this.prisma.coachProfile.findUnique({
+            where : { userId },
+            include : {
+                user : {
+                    select : { name : true, phone : true, email : true, avatarUrl : true}
+                },
+            },
+        });
+    }
+
+    public async getMyAvailability(userId: number) {
+        const profile = await this.prisma.coachProfile.findUnique({
+            where: { userId },
+            select: {
+                availabilities: true
+            }
+        });
+        return profile?.availabilities ?? [];
+    }
+
 }
