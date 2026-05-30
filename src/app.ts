@@ -5,6 +5,7 @@ import userRoutes from './modules/user/user.route';
 import planRoutes from './modules/plans/plans.routes'
 import membershipRoutes from './modules/membership/membership.route'
 import checkInRoutes from './modules/checkin/checkin.route'
+import coachRoutes from './modules/coach/coach.route'
 import cookieParser from 'cookie-parser';
 const app = express();
 
@@ -32,5 +33,5 @@ app.use("/users", userRoutes);
 app.use("/plan", planRoutes);
 app.use("/membership", membershipRoutes);
 app.use("/check-in", checkInRoutes);
-
+app.use("/coach", coachRoutes);
 export default app;

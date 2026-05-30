@@ -28,6 +28,30 @@ enum Gender {
   OTHER
 }
 
+// Các mục tiêu tập luyện chuyên biệt
+enum TrainingGoal {
+  WEIGHT_LOSS        // Giảm cân / Giảm mỡ
+  MUSCLE_GAIN        // Tăng cơ / Thể hình
+  COMPETITION_PREP   // Huấn luyện thi đấu chuyên nghiệp
+  REHABILITATION     // Phục hồi chấn thương / Trị liệu
+  GENERAL_FITNESS    // Duy trì vóc dáng / Sức khỏe tổng quát
+}
+
+// Trạng thái của buổi tập cá nhân
+enum WorkoutSessionStatus {
+  PLANNED            // Lịch tập chính thức
+  PENDING_RESCHEDULE // Đang chờ PT duyệt yêu cầu đổi lịch
+  COMPLETED          // Đã tập xong
+  SKIPPED            // Đã hủy/bỏ tập
+}
+
+// Trạng thái lớp học nhóm của PT
+enum GroupClassStatus {
+  SCHEDULED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
 
 model User {
   id                Int          @id @default(autoincrement())
@@ -56,6 +80,9 @@ model User {
   memberships       Membership[]
   payments          Payment[]
   checkIns          CheckIn[]
+  coachProfile      CoachProfile?
+  coachAssignments  CoachAssignment[] @relation("UserCoachAssignments")
+  workoutSessions   WorkoutSession[]
   @@map("users")
 
   @@index([email])
@@ -113,24 +140,29 @@ model Membership {
   @@index([plan_id])
 }
 model Payment {
-  id              Int           @id @default(autoincrement())
-  user_id         Int           @map("user_id") // Khớp với kiểu Int của User.id
-  membership_id   Int           @map("membership_id") // Đổi sang Int
-  plan_id         Int           @map("plan_id") // Đổi sang Int
-  amount          Decimal       @db.Decimal(12, 2)
-  method          PaymentMethod
-  status          PaymentStatus @default(PENDING)
-  transaction_ref String?       @map("transaction_ref") @db.VarChar(255)
-  gateway_response Json?        @map("gateway_response")
-  paid_at         DateTime?     @map("paid_at")
-  created_at      DateTime      @default(now()) @map("created_at")
-  user            User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  membership      Membership    @relation(fields: [membership_id], references: [id], onDelete: Cascade)
-  plan            Plan          @relation(fields: [plan_id], references: [id], onDelete: Restrict)
+  id                  Int              @id @default(autoincrement())
+  user_id             Int              @map("user_id")
+  membership_id       Int?             @map("membership_id")
+  plan_id             Int?             @map("plan_id")
+  coach_assignment_id Int?             @map("coach_assignment_id")
+  amount              Decimal          @db.Decimal(12, 2)
+  method              PaymentMethod
+  status              PaymentStatus    @default(PENDING)
+  transaction_ref     String?          @map("transaction_ref") @db.VarChar(255)
+  gateway_response    Json?            @map("gateway_response")
+  paid_at             DateTime?        @map("paid_at")
+  created_at          DateTime         @default(now()) @map("created_at")
+
+  user                User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  membership          Membership?      @relation(fields: [membership_id], references: [id], onDelete: Cascade)
+  plan                Plan?            @relation(fields: [plan_id], references: [id], onDelete: Restrict)
+  coachAssignment     CoachAssignment? @relation(fields: [coach_assignment_id], references: [id], onDelete: Cascade)
+
   @@map("payments")
   @@index([user_id])
   @@index([membership_id])
   @@index([plan_id])
+  @@index([coach_assignment_id])
 }
 
 model CheckIn {
@@ -141,4 +173,159 @@ model CheckIn {
   @@map("check_ins")
   @@index([userId])
   @@index([checkInAt])
+}
+
+// ==========================================
+// NEW PT-RELATED MODELS
+// ==========================================
+
+// 1. Hồ sơ Huấn luyện viên
+model CoachProfile {
+  id           Int                 @id @default(autoincrement())
+  userId       Int                 @unique @map("user_id")
+  speciality   String?             @db.VarChar(255)
+  bio          String?             @db.Text
+  isAvailable  Boolean             @default(true) @map("is_available")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availabilities CoachAvailability[]
+  packages     CoachPtPackage[]
+  assignments  CoachAssignment[]
+  sessions     WorkoutSession[]
+  groupClasses GroupClass[]
+
+  @@map("coach_profiles")
+}
+
+// 2. Lịch rảnh trong tuần của PT (dùng để lọc giờ đặt lịch)
+model CoachAvailability {
+  id           Int          @id @default(autoincrement())
+  coachId      Int          @map("coach_id")
+  dayOfWeek    Int          @map("day_of_week") // 0: Chủ Nhật, 1: Thứ 2, ..., 6: Thứ 7
+  startTime    String       @map("start_time")   // Định dạng "18:00"
+  endTime      String       @map("end_time")     // Định dạng "20:00"
+  startMinutes Int          @map("start_minutes") // Số phút tính từ 00:00 (Ví dụ: 18:00 = 1080)
+  endMinutes   Int          @map("end_minutes")   // Số phút tính từ 00:00 (Ví dụ: 20:00 = 1200)
+
+  coach        CoachProfile @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@map("coach_availabilities")
+  @@index([coachId])
+  @@index([dayOfWeek, startMinutes, endMinutes])
+}
+
+// 3. Gói Combo PT mẫu (không lưu giá trực tiếp)
+model PtPackage {
+  id               Int               @id @default(autoincrement())
+  name             String            @db.VarChar(255) // Ví dụ: "Combo 20 buổi tập"
+  numberOfSessions Int               @map("number_of_sessions") // 20
+  durationDays     Int               @map("duration_days") // 60 ngày hạn sử dụng
+  goal             TrainingGoal // Mục tiêu tập luyện
+  isActive         Boolean           @default(true) @map("is_active")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  coachPrices      CoachPtPackage[]
+  assignments      CoachAssignment[]
+
+  @@map("pt_packages")
+}
+
+// 4. Bảng liên kết lưu giá bán riêng của từng PT đối với từng combo
+model CoachPtPackage {
+  coachId     Int     @map("coach_id")
+  ptPackageId Int     @map("pt_package_id")
+  price       Decimal @db.Decimal(12, 2) // Giá riêng của PT
+  isActive    Boolean @default(true) @map("is_active")
+
+  coach       CoachProfile @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  ptPackage   PtPackage    @relation(fields: [ptPackageId], references: [id], onDelete: Cascade)
+
+  @@id([coachId, ptPackageId])
+  @@map("coach_pt_packages")
+}
+
+// 5. Hợp đồng thuê PT của hội viên
+model CoachAssignment {
+  id                Int          @id @default(autoincrement())
+  coachId           Int          @map("coach_id")
+  userId            Int          @map("user_id")
+  ptPackageId       Int          @map("pt_package_id")
+  totalSessions     Int          @map("total_sessions")
+  remainingSessions Int          @map("remaining_sessions")
+  pricePaid         Decimal      @map("price_paid") @db.Decimal(12, 2)
+  startDate         DateTime     @map("start_date") @db.Date
+  endDate           DateTime     @map("end_date") @db.Date
+  status            String       @default("ACTIVE") @db.VarChar(50) // PENDING, ACTIVE, COMPLETED, EXPIRED
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  coach             CoachProfile @relation(fields: [coachId], references: [id], onDelete: Restrict)
+  user              User         @relation("UserCoachAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  ptPackage         PtPackage    @relation(fields: [ptPackageId], references: [id], onDelete: Restrict)
+  payments          Payment[]
+
+  @@map("coach_assignments")
+  @@index([coachId])
+  @@index([userId])
+}
+
+// 6. Buổi hẹn tập cá nhân của hội viên với PT
+model WorkoutSession {
+  id                  Int                  @id @default(autoincrement())
+  userId              Int                  @map("user_id")
+  coachId             Int?                 @map("coach_id")
+  scheduledAt         DateTime             @map("scheduled_at")
+  pendingRescheduleAt DateTime?            @map("pending_reschedule_at")
+  durationMinutes     Int                  @default(60) @map("duration_minutes")
+  status              WorkoutSessionStatus @default(PLANNED)
+  note                String?              @db.Text
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coach           CoachProfile?        @relation(fields: [coachId], references: [id], onDelete: SetNull)
+  exerciseLogs    ExerciseLog[]
+
+  @@map("workout_sessions")
+  @@index([userId])
+  @@index([coachId])
+  @@index([scheduledAt])
+}
+
+// 7. Giáo án bài tập chi tiết cho từng buổi tập
+model ExerciseLog {
+  id           Int            @id @default(autoincrement())
+  sessionId    Int            @map("session_id")
+  exerciseName String         @map("exercise_name") @db.VarChar(255)
+  sets         Int
+  reps         Int
+  weightKg     Float          @map("weight_kg")
+  restSeconds  Int            @map("rest_seconds")
+  note         String?        @db.Text
+
+  session      WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("exercise_logs")
+  @@index([sessionId])
+}
+
+// 8. Lớp học nhóm do PT dạy (để check trùng lịch)
+model GroupClass {
+  id              Int              @id @default(autoincrement())
+  coachId         Int              @map("coach_id")
+  name            String           @db.VarChar(255)
+  scheduledAt     DateTime         @map("scheduled_at")
+  durationMinutes Int              @map("duration_minutes")
+  status          GroupClassStatus @default(SCHEDULED)
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  coach           CoachProfile     @relation(fields: [coachId], references: [id], onDelete: Restrict)
+
+  @@map("group_classes")
+  @@index([coachId])
+  @@index([scheduledAt])
 }
