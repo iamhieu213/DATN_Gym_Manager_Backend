@@ -6,17 +6,26 @@ import {
     updateMyProfile, 
     updateMyAvailability, 
     getMyProfile,
-    getMyAvailability
+    getMyAvailability,
+    getCoachesForAdmin,
+    updateCoachStatusByAdmin
 } from './coach.controller';
+
 const router = Router();
-// router.use(authMiddleware);
-// Members & general
+
+// ================= Lọc công khai (Không cần đăng nhập) =================
 router.get('/', getAllCoaches);
 router.get('/:id', getCoach);
-// Coach self management
+
+// ================= Quản lý tài khoản PT (Yêu cầu đăng nhập) =================
 router.get('/profile/me', authMiddleware, getMyProfile);
-router.put('/profile', updateMyProfile);
+router.put('/profile', authMiddleware, updateMyProfile);
+
 router.get('/availability/me', authMiddleware, getMyAvailability);
-router.put('/availability', updateMyAvailability);
+router.put('/availability', authMiddleware, updateMyAvailability);
+
+// ================= Quản trị của Admin (Yêu cầu quyền ADMIN) =================
+router.get('/admin/list', authMiddleware, getCoachesForAdmin);
+router.patch('/admin/:id/status', authMiddleware, updateCoachStatusByAdmin);
 
 export default router;
