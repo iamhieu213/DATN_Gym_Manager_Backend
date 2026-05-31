@@ -1,7 +1,6 @@
 export interface UpdateCoachProfileDto {
     speciality? : string;
     bio? : string;
-    isAvailable? : boolean;
 }
 
 export interface RegisterAvailabilityDto {
@@ -22,4 +21,11 @@ export interface ListCoachQueryDto {
     limit? : string;
     slots? : string; // Chuỗi JSON chứa mảng các khung giờ: [{"dayOfWeek":1,"startTime":"18:00","endTime":"20:00"}]
     ptPackageId? : string;
+}
+
+export interface ListCoachAdminQueryDto {
+    search?: string;
+    isAvailable?: string; // "true" hoặc "false"
+    page?: string;
+    limit?: string;
 }

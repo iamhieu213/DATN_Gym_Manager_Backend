@@ -30,3 +30,8 @@ export interface ListPackageCoachQueryDto {
     startTime?: string;
     endTime?: string;
 }
+
+export interface ListPtPackageQueryDto {
+    goal? : string,
+    isActive? : string
+}

@@ -64,13 +64,12 @@ export class CoachRepository {
         });
     }
 
-    public async updateProfile(id: number, dto: UpdateCoachProfileDto) {
+    public async updateProfile(id: number, dto: UpdateCoachProfileDto & { isAvailable?: boolean }) {
         return this.prisma.coachProfile.update({
             where: { id },
             data: {
                 ...(dto.speciality !== undefined && { speciality: dto.speciality }),
                 ...(dto.bio !== undefined && { bio: dto.bio }),
-                ...(dto.isAvailable !== undefined && { isAvailable: dto.isAvailable })
             }
         });
     }

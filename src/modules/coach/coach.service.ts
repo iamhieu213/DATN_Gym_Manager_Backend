@@ -1,5 +1,5 @@
 import { constants } from 'node:buffer';
-import { ListCoachQueryDto, UpdateCoachProfileDto, RegisterAvailabilityDto } from './coach.dto';
+import { ListCoachQueryDto, UpdateCoachProfileDto, RegisterAvailabilityDto, ListCoachAdminQueryDto } from './coach.dto';
 import { CoachRepository } from './coach.repository';
 
 export class CoachService {
@@ -125,7 +125,14 @@ export class CoachService {
         if (role !== 'COACH') throw new Error("FORBIDDEN");
         const profile = await this.coachRepository.findByUserId(userId);
         if (!profile) throw new Error("COACH_PROFILE_NOT_FOUND");
-        return this.coachRepository.updateProfile(profile.id, dto);
+
+        // Chỉ cho phép cập nhật bio và speciality, ngăn PT tự đổi trạng thái hoạt động (isAvailable)
+        const updateData: UpdateCoachProfileDto = {
+            ...(dto.bio !== undefined && { bio: dto.bio }),
+            ...(dto.speciality !== undefined && { speciality: dto.speciality })
+        };
+
+        return this.coachRepository.updateProfile(profile.id, updateData);
     }
 
     public async setMyAvailability(userId: number, role: string, dto: RegisterAvailabilityDto) {
@@ -149,5 +156,51 @@ export class CoachService {
         });
 
         return this.coachRepository.updateAvailabilities(profile.id, formatted);
+    }
+
+    // Admin lấy danh sách toàn bộ PT để quản trị
+    public async getAllCoachesForAdmin(role: string, query: ListCoachAdminQueryDto) {
+        if (role !== 'ADMIN') throw new Error("FORBIDDEN");
+
+        const page = Number(query.page ?? 1);
+        const limit = Number(query.limit ?? 10);
+        const skip = (page - 1) * limit;
+
+        const where: any = {};
+
+        if (query.isAvailable !== undefined) {
+            where.isAvailable = query.isAvailable === 'true';
+        }
+
+        if (query.search) {
+            where.user = {
+                name: { contains: query.search, mode: 'insensitive' }
+            };
+        }
+
+        const [coaches, total] = await Promise.all([
+            this.coachRepository.findMany(where, skip, limit),
+            this.coachRepository.count(where)
+        ]);
+
+        return {
+            data: coaches,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            }
+        };
+    }
+
+    // Admin cập nhật trạng thái hoạt động của PT
+    public async updateCoachStatusByAdmin(role: string, coachId: number, isAvailable: boolean) {
+        if (role !== 'ADMIN') throw new Error("FORBIDDEN");
+
+        const coach = await this.coachRepository.findById(coachId);
+        if (!coach) throw new Error("COACH_NOT_FOUND");
+
+        return this.coachRepository.updateProfile(coachId, { isAvailable });
     }
 }

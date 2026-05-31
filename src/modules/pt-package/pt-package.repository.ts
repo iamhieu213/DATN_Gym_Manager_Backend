@@ -133,4 +133,22 @@ export class PtPackageRepository {
             }
         });
     }
+
+    // Mở/Khóa gói tập mẫu toàn hệ thống
+    public async updatePackageStatus(id: number, isActive: boolean) {
+        return this.prisma.ptPackage.update({
+            where: { id },
+            data: { isActive }
+        });
+    }
+
+    // Mở/Khóa quyền dạy gói của một PT cụ thể
+    public async updateCoachPackageStatus(coachId: number, ptPackageId: number, isActive: boolean) {
+        return this.prisma.coachPtPackage.update({
+            where: {
+                coachId_ptPackageId: { coachId, ptPackageId }
+            },
+            data: { isActive }
+        });
+    }
 }

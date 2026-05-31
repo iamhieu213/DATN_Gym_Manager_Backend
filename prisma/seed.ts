@@ -193,7 +193,7 @@ async function main() {
             userId: coachUsers[3].id,
             speciality: 'Phục hồi chấn thương sau phẫu thuật, Pilates trị liệu',
             bio: 'Tốt nghiệp cử nhân Y Sinh học vận động. Đã giúp hơn 500 khách hàng phục hồi tư thế.',
-            isAvailable: true
+            isAvailable: false // Khởi tạo PT này tạm ngưng hoạt động để test API
         }
     });
 
@@ -275,7 +275,8 @@ async function main() {
             name: 'Combo 12 buổi - Phục hồi chấn thương & Thể chất',
             numberOfSessions: 12,
             durationDays: 45,
-            goal: TrainingGoal.REHABILITATION
+            goal: TrainingGoal.REHABILITATION,
+            isActive: false // Khởi tạo gói này bị khóa để test API
         }
     });
 
@@ -291,7 +292,9 @@ async function main() {
             { coachId: coach3.id, ptPackageId: package2.id, price: 9000000.00 },
             { coachId: coach3.id, ptPackageId: package3.id, price: 18000000.00 },
             // Lê Triệu Vy dạy phục hồi (6tr)
-            { coachId: coach4.id, ptPackageId: package4.id, price: 6000000.00 }
+            { coachId: coach4.id, ptPackageId: package4.id, price: 6000000.00 },
+            // Trần Thị Hương dạy tăng cơ nhưng đã bị khóa hoạt động liên kết này
+            { coachId: coach2.id, ptPackageId: package2.id, price: 8000000.00, isActive: false }
         ]
     });
 
