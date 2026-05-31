@@ -151,4 +151,13 @@ export class PtPackageRepository {
             data: { isActive }
         });
     }
+
+    // Tìm giá của một PT cụ thể cho một gói tập cụ thể
+    public async findSpecificPrice(coachId: number, ptPackageId: number) {
+        return this.prisma.coachPtPackage.findUnique({
+            where: {
+                coachId_ptPackageId: { coachId, ptPackageId }
+            }
+        });
+    }
 }
