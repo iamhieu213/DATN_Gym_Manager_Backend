@@ -18,6 +18,7 @@ const mapErrorStatus = (code: string): number => {
             return 404;
         case "PLAN_IN_USE":
         case "MISSING_REQUIRED_FIELDS":
+        case "PLAN_CODE_ALREADY_EXISTS": 
         case "BAD_REQUEST":
             return 400;
         default:
@@ -39,6 +40,8 @@ const mapErrorMessage = (code: string): string => {
             return "Vui lòng nhập đầy đủ các trường thông tin bắt buộc.";
         case "BAD_REQUEST":
             return "Yêu cầu dữ liệu gửi lên không hợp lệ.";
+        case "PLAN_CODE_ALREADY_EXISTS": 
+            return "Mã gói tập này đã tồn tại trên hệ thống. Vui lòng chọn mã khác."
         default:
             return "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.";
     }

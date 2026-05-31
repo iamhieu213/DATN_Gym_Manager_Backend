@@ -1,6 +1,7 @@
 export interface CreatePlanDto {
     name: string;
     description?: string;
+    code : string
     price: number;
     duration_days: number;
     features?: string[] | any; 
@@ -9,6 +10,7 @@ export interface CreatePlanDto {
 
 export interface UpdatePlanDto {
     name?: string;
+    code? : string;
     description?: string;
     price?: number;
     duration_days?: number;
