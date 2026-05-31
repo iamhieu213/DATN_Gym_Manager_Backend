@@ -111,6 +111,7 @@ enum PaymentStatus {
 model Plan {
   id            Int          @id @default(autoincrement())
   name          String       @db.VarChar(255)
+  code          String       @unique @db.VarChar(50)
   description   String?      @db.Text
   price         Decimal      @db.Decimal(12, 2)
   duration_days Int          @map("duration_days")
@@ -220,6 +221,7 @@ model CoachAvailability {
 model PtPackage {
   id               Int               @id @default(autoincrement())
   name             String            @db.VarChar(255) // Ví dụ: "Combo 20 buổi tập"
+  code             String            @unique @db.VarChar(50)
   numberOfSessions Int               @map("number_of_sessions") // 20
   durationDays     Int               @map("duration_days") // 60 ngày hạn sử dụng
   goal             TrainingGoal // Mục tiêu tập luyện

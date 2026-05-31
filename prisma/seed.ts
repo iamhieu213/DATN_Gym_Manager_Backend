@@ -126,6 +126,40 @@ async function main() {
         })
     ]);
 
+    console.log('📋 Tạo các Gói tập Gym thường mẫu...');
+    const plans = await Promise.all([
+        prisma.plan.create({
+            data: {
+                code: 'GYM_1M',
+                name: 'Gói tập 1 tháng cơ bản',
+                description: 'Tự do tập luyện trong 30 ngày',
+                price: 500000.00,
+                duration_days: 30,
+                features: ["Sử dụng đầy đủ trang thiết bị", "Miễn phí tủ đồ cá nhân"]
+            }
+        }),
+        prisma.plan.create({
+            data: {
+                code: 'GYM_3M',
+                name: 'Gói tập 3 tháng tiết kiệm',
+                description: 'Tự do tập luyện trong 90 ngày',
+                price: 1200000.00,
+                duration_days: 90,
+                features: ["Sử dụng đầy đủ trang thiết bị", "Miễn phí tủ đồ cá nhân", "Được bảo lưu thẻ 15 ngày"]
+            }
+        }),
+        prisma.plan.create({
+            data: {
+                code: 'GYM_12M',
+                name: 'Gói tập 12 tháng VIP',
+                description: 'Tự do tập luyện trong 365 ngày',
+                price: 4000000.00,
+                duration_days: 365,
+                features: ["Quyền lợi VIP", "Sử dụng đầy đủ trang thiết bị", "Miễn phí tủ đồ + khăn tắm", "Được bảo lưu thẻ 45 ngày"]
+            }
+        })
+    ]);
+
     console.log('📋 Tạo hồ sơ PT & Lịch làm việc rảnh mẫu...');
     const coach1 = await prisma.coachProfile.create({
         data: {
@@ -207,6 +241,7 @@ async function main() {
     console.log('📦 Tạo các Gói Combo PT mẫu...');
     const package1 = await prisma.ptPackage.create({
         data: {
+            code: 'PT_WEIGHT_12S',
             name: 'Combo 12 buổi - Giảm mỡ nhanh cùng PT',
             numberOfSessions: 12,
             durationDays: 30,
@@ -216,6 +251,7 @@ async function main() {
 
     const package2 = await prisma.ptPackage.create({
         data: {
+            code: 'PT_MUSCLE_24S',
             name: 'Combo 24 buổi - Tăng cơ chuyên sâu cùng PT',
             numberOfSessions: 24,
             durationDays: 60,
@@ -225,6 +261,7 @@ async function main() {
 
     const package3 = await prisma.ptPackage.create({
         data: {
+            code: 'PT_COMP_36S',
             name: 'Combo 36 buổi - Huấn luyện thi đấu chuyên nghiệp',
             numberOfSessions: 36,
             durationDays: 90,
@@ -234,6 +271,7 @@ async function main() {
 
     const package4 = await prisma.ptPackage.create({
         data: {
+            code: 'PT_REHAB_12S',
             name: 'Combo 12 buổi - Phục hồi chấn thương & Thể chất',
             numberOfSessions: 12,
             durationDays: 45,

@@ -23,11 +23,16 @@ export class PlansRepository {
         return this.prisma.plan.findUnique({ where: { id } });
     }
 
+    public async findByCode(code: string) {
+        return this.prisma.plan.findUnique({ where: { code } });
+    }
+
     //Tao goi tap moi
     public async create(dto: CreatePlanDto) {
         return this.prisma.plan.create({
             data: {
                 name: dto.name,
+                code: dto.code,
                 description: dto.description ?? null,
                 price: dto.price,
                 duration_days: dto.duration_days,
@@ -45,6 +50,10 @@ export class PlansRepository {
             data: {
                 ...(dto.name !== undefined && {
                     name: dto.name,
+                }),
+
+                ...(dto.code !== undefined && {
+                    code: dto.code,
                 }),
 
                 ...(dto.description !== undefined && {

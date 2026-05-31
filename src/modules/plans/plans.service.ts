@@ -58,6 +58,13 @@ export class PlansService {
         if (!dto.name || dto.price === undefined || dto.duration_days === undefined) {
             throw new Error("MISSING_REQUIRED_FIELDS");
         }
+
+        // Kiểm tra xem mã code đã tồn tại chưa
+        const existed = await this.plansRepository.findByCode(dto.code);
+        if (existed) {
+            throw new Error("PLAN_CODE_ALREADY_EXISTS");
+        }
+
         return this.plansRepository.create(dto);
     }
 
@@ -69,22 +76,29 @@ export class PlansService {
         if (!existed) {
             throw new Error("PLAN_NOT_FOUND");
         }
+
+        if (dto.code && dto.code !== existed.code) {
+            const duplicate = await this.plansRepository.findByCode(dto.code);
+            if (duplicate) {
+                throw new Error("PLAN_CODE_ALREADY_EXISTS");
+            }
+        }
         return this.plansRepository.update(id, dto);
     }
 
     //Mo goi tap
-    public async activate(id : number, role : string) {
+    public async activate(id: number, role: string) {
         const plan = await this.plansRepository.findById(id);
 
-        if(!plan) throw new Error("PLAN_NOT_FOUND");
+        if (!plan) throw new Error("PLAN_NOT_FOUND");
 
         return await this.plansRepository.isActivate(id, true);
     }
 
-    public async deactivate(id : number, role : string) {
+    public async deactivate(id: number, role: string) {
         const plan = await this.plansRepository.findById(id);
 
-        if(!plan) throw new Error("PLAN_NOT_FOUND");
+        if (!plan) throw new Error("PLAN_NOT_FOUND");
 
         return await this.plansRepository.isActivate(id, false);
     }
