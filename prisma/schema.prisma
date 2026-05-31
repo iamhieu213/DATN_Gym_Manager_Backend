@@ -79,10 +79,11 @@ model User {
 
   memberships       Membership[]
   payments          Payment[]
-  checkIns          CheckIn[]
-  coachProfile      CoachProfile?
-  coachAssignments  CoachAssignment[] @relation("UserCoachAssignments")
-  workoutSessions   WorkoutSession[]
+  checkIns            CheckIn[]
+  coachProfile        CoachProfile?
+  coachAssignments    CoachAssignment[] @relation("UserCoachAssignments")
+  workoutSessions     WorkoutSession[]
+  coachChangeRequests CoachChangeRequest[]
   @@map("users")
 
   @@index([email])
@@ -191,11 +192,13 @@ model CoachProfile {
   updatedAt    DateTime            @updatedAt @map("updated_at")
 
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  availabilities CoachAvailability[]
-  packages     CoachPtPackage[]
-  assignments  CoachAssignment[]
-  sessions     WorkoutSession[]
-  groupClasses GroupClass[]
+  availabilities      CoachAvailability[]
+  packages            CoachPtPackage[]
+  assignments         CoachAssignment[]
+  sessions            WorkoutSession[]
+  groupClasses        GroupClass[]
+  changeRequestsAsOld CoachChangeRequest[] @relation("OldCoachRelation")
+  changeRequestsAsNew CoachChangeRequest[] @relation("NewCoachRelation")
 
   @@map("coach_profiles")
 }
@@ -265,9 +268,10 @@ model CoachAssignment {
   updatedAt         DateTime     @updatedAt @map("updated_at")
 
   coach             CoachProfile @relation(fields: [coachId], references: [id], onDelete: Restrict)
-  user              User         @relation("UserCoachAssignments", fields: [userId], references: [id], onDelete: Cascade)
-  ptPackage         PtPackage    @relation(fields: [ptPackageId], references: [id], onDelete: Restrict)
-  payments          Payment[]
+  user                User                 @relation("UserCoachAssignments", fields: [userId], references: [id], onDelete: Cascade)
+  ptPackage           PtPackage            @relation(fields: [ptPackageId], references: [id], onDelete: Restrict)
+  payments            Payment[]
+  coachChangeRequests CoachChangeRequest[]
 
   @@map("coach_assignments")
   @@index([coachId])
@@ -330,4 +334,28 @@ model GroupClass {
   @@map("group_classes")
   @@index([coachId])
   @@index([scheduledAt])
+}
+
+// 9. Yêu cầu đổi PT của hội viên
+model CoachChangeRequest {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  assignmentId Int      @map("assignment_id")
+  oldCoachId   Int      @map("old_coach_id")
+  newCoachId   Int      @map("new_coach_id")
+  reason       String   @db.Text
+  status       String   @default("PENDING") @db.VarChar(50) // PENDING, APPROVED, REJECTED
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignment   CoachAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  oldCoach     CoachProfile    @relation("OldCoachRelation", fields: [oldCoachId], references: [id], onDelete: Restrict)
+  newCoach     CoachProfile    @relation("NewCoachRelation", fields: [newCoachId], references: [id], onDelete: Restrict)
+
+  @@map("coach_change_requests")
+  @@index([userId])
+  @@index([assignmentId])
+  @@index([oldCoachId])
+  @@index([newCoachId])
 }

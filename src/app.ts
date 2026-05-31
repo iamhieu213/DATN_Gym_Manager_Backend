@@ -6,7 +6,8 @@ import planRoutes from './modules/plans/plans.routes'
 import membershipRoutes from './modules/membership/membership.route'
 import checkInRoutes from './modules/checkin/checkin.route'
 import coachRoutes from './modules/coach/coach.route'
-import ptPackageRoutes from './modules/pt-package/pt-package.routes'
+import ptPackageRoutes from './modules/pt-package/pt-package.route'
+import ptBooking from './modules/pt-booking/pt-booking.route'
 import cookieParser from 'cookie-parser';
 const app = express();
 
@@ -36,4 +37,5 @@ app.use("/membership", membershipRoutes);
 app.use("/check-in", checkInRoutes);
 app.use("/coach", coachRoutes);
 app.use("/pt-package", ptPackageRoutes);
+app.use("/pt-booking", ptBooking);
 export default app;
