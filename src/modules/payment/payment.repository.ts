@@ -34,15 +34,39 @@ export class PaymentRepository {
     }
 
     // Admin xem toàn bộ giao dịch hệ thống
-    public async findAllPayments(status?: PaymentStatus) {
+    public async findAllPayments(where : any, skip : number, take : number) {
         return this.prisma.payment.findMany({
-            where: status ? { status } : {},
-            orderBy: { created_at: 'desc' },
-            include: {
-                user: { select: { name: true, email: true, phone: true } },
-                membership: { include: { plan: true } },
-                coachAssignment: { include: { ptPackage: true } }
+            where,
+            skip,
+            take,
+            orderBy : { created_at : 'desc' },
+        });
+    }
+
+    //Xem chi tiet 1 payment
+    public async findPayMentById(id : number) {
+        return this.prisma.payment.findUnique({
+            where : { id },
+            include : {
+                user : { select : { id : true, name : true, email : true, phone : true} },
+                membership : { include : { plan : true} },
+                coachAssignment : {
+                    include : {
+                        ptPackage : true,
+                        coach : {
+                            include : {
+                                user : { select : { name : true} },
+                            }
+                        }
+                    }
+                }
             }
         });
+
+    }
+    
+    //Dem tong so ban ban ghi thoa man bo loc de tinh so trang
+    public async countAllPayments(where : any) {
+        return this.prisma.payment.count({ where });
     }
 }

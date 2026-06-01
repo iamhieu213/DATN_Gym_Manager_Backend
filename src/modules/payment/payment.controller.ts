@@ -9,6 +9,7 @@ import { MembershipRepository } from '../membership/membership.repository';
 import { PtBookingService } from '../pt-booking/pt-booking.service';
 import { PtBookingRepository } from '../pt-booking/pt-booking.repository';
 import { PtPackageRepository } from '../pt-package/pt-package.repository';
+import { ListPaymentsQueryDto } from './payment.dto'; 
 
 const repository = new PaymentRepository(prisma);
 const membershipService = new MembershipsService(new MembershipRepository(prisma));
@@ -163,11 +164,42 @@ export const adminGetPayments = async (req: AuthRequest, res: Response) => {
     try {
         const role = req.user?.role;
         if (!role) throw new Error("FORBIDDEN");
-        const status = req.query.status as any;
-        const data = await service.adminGetPayments(role, status);
-        res.status(200).json({ success: true, data });
+        // Nhận toàn bộ query params truyền lên từ URL và ép kiểu sang ListPaymentsQueryDto
+        const query = req.query as unknown as ListPaymentsQueryDto;
+        const result = await service.adminGetPayments(role, query);
+        res.status(200).json({ 
+            success: true, 
+            data: result.data,
+            meta: result.meta 
+        });
     } catch (e: any) {
         console.error("Error in adminGetPayments:", e);
+        const error = mapError(e.message);
+        res.status(error.status).json({ success: false, message: error.message });
+    }
+};
+
+// GET /payments/:paymentId
+export const getPaymentDetail = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        const role = req.user?.role;
+        if (!userId || !role) throw new Error("FORBIDDEN");
+
+        const paymentId = parseInt(req.params.paymentId as string, 10);
+        if (isNaN(paymentId)) {
+            return res.status(400).json({ success: false, message: "Mã hóa đơn không hợp lệ." });
+        }
+
+        // Gọi service xử lý phân quyền và lấy dữ liệu
+        const data = await service.findPaymentById(userId, role, paymentId);
+
+        res.status(200).json({ 
+            success: true, 
+            data 
+        });
+    } catch (e: any) {
+        console.error("Error in getPaymentDetail:", e);
         const error = mapError(e.message);
         res.status(error.status).json({ success: false, message: error.message });
     }

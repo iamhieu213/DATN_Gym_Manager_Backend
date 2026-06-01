@@ -2,6 +2,7 @@ import { PaymentRepository } from './payment.repository';
 import { MembershipsService } from '../membership/membership.service';
 import { PtBookingService } from '../pt-booking/pt-booking.service';
 import { PaymentMethod, PaymentStatus } from '@prisma/client';
+import { ListPaymentsQueryDto } from './payment.dto';
 
 export class PaymentService {
     constructor(
@@ -59,11 +60,63 @@ export class PaymentService {
         return this.repository.findUserPayments(userId);
     }
 
-    // 4. Admin xem toàn bộ giao dịch
-    public async adminGetPayments(role: string, status?: any) {
+    // Admin/Staff xem toàn bộ giao dịch có phân trang, tìm kiếm & bộ lọc
+    public async adminGetPayments(role: string, query: ListPaymentsQueryDto) {
         if (role !== "ADMIN" && role !== "STAFF") {
             throw new Error("FORBIDDEN");
         }
-        return this.repository.findAllPayments(status);
+
+        const page = Number(query.page ?? 1);
+        const limit = Number(query.limit ?? 10);
+        const skip = (page - 1) * limit;
+
+        // Xây dựng điều kiện lọc (where)
+        const where: any = {};
+        
+        // 1. Lọc theo trạng thái thanh toán
+        if (query.status) {
+            where.status = query.status;
+        }
+
+        // 2. Tìm kiếm theo thông tin người dùng (tên, email, số điện thoại)
+        if (query.search) {
+            where.user = {
+                OR: [
+                    { name: { contains: query.search, mode: 'insensitive' } },
+                    { email: { contains: query.search, mode: 'insensitive' } },
+                    { phone: { contains: query.search, mode: 'insensitive' } }
+                ]
+            };
+        }
+
+        // Thực hiện truy vấn song song dữ liệu và tổng số lượng
+        const [payments, total] = await Promise.all([
+            this.repository.findAllPayments(where, skip, limit),
+            this.repository.countAllPayments(where)
+        ]);
+
+        return {
+            data: payments,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            }
+        };
+    }
+
+    //Xem chi tiet 1 payment
+    public async findPaymentById(userId : number, role : string, paymentId : number) {
+        const payment = await this.repository.findPayMentById(paymentId);
+
+        if(!payment) throw new Error("PAYMENT_NOT_FOUND");
+
+        if(role !== 'ADMIN' && role !== 'STAFF' && payment.user_id !== userId) {
+            throw new Error("FORBIDDEN");
+        }
+
+        return payment;
+
     }
 }
