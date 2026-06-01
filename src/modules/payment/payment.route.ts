@@ -6,7 +6,8 @@ import {
     handleVnpayIpn,
     handleVnpayReturn,
     getMyHistory,
-    adminGetPayments
+    adminGetPayments,
+    getPaymentDetail
 } from './payment.controller';
 
 const router = Router();
@@ -20,9 +21,10 @@ router.use(authMiddleware);
 // Hội viên
 router.post('/:paymentId/pay', payInvoice); // Gửi cổng thanh toán & sinh link
 router.get('/my-history', getMyHistory); // Lịch sử giao dịch
+router.get('/:paymentId', getPaymentDetail);
 
 // Admin / Staff
 router.post('/:paymentId/confirm', confirmCashPayment); // Xác nhận tiền mặt tại quầy
-router.get('/admin/list', adminGetPayments); // Lấy toàn bộ danh sách hóa đơn
+router.get('/list', adminGetPayments); // Lấy toàn bộ danh sách hóa đơn
 
 export default router;

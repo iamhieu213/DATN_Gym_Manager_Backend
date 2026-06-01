@@ -368,3 +368,26 @@ model CoachChangeRequest {
   @@index([newCoachId])
   @@index([paymentId])
 }
+
+// 10. Thiết bị phòng gym
+enum EquipmentStatus {
+  OPERATIONAL       // Hoạt động tốt
+  UNDER_MAINTENANCE // Đang bảo trì
+  OUT_OF_SERVICE    // Hỏng / Ngừng hoạt động
+}
+
+model Equipment {
+  id                  Int             @id @default(autoincrement())
+  name                String          @db.VarChar(255)
+  code                String          @unique @db.VarChar(50)
+  status              EquipmentStatus @default(OPERATIONAL)
+  location            String?         @db.VarChar(255) // Vị trí trong phòng tập (Ví dụ: Khu Cardio, Khu tạ...)
+  purchaseDate        DateTime?       @map("purchase_date")
+  lastMaintenanceDate DateTime?       @map("last_maintenance_date")
+  note                String?         @db.Text
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+
+  @@map("equipments")
+  @@index([status])
+}
