@@ -108,7 +108,7 @@ export class PtBookingRepository {
     }
 
     //Xac nhan da thanh toan va chuyen trang thai sang ACTIVE
-    public async activateAssigment(paymentId: number, transactionRef: string, durationDays: number, gatewayResponse?: any) {
+    public async activateAssignment(paymentId: number, transactionRef: string, durationDays: number, gatewayResponse?: any) {
         return this.prisma.$transaction(async (tx) => {
             const payment = await tx.payment.update({
                 where: { id: paymentId },
@@ -186,6 +186,125 @@ export class PtBookingRepository {
         })
     }
 
+    //Tim yeu cau doi PT bang Id hoa don
+    public async findChangeRequestByPaymentId(paymentId : number) {
+        return this.prisma.coachChangeRequest.findFirst({
+            where : { paymentId }
+        });
+    }
+
+    // 1. Chỉ tạo yêu cầu đổi PT (Chưa tạo hóa đơn PENDING)
+    public async createChangeRequestWithPackage(
+        userId: number,
+        assignmentId: number,
+        oldCoachId: number,
+        newCoachId: number,
+        newPtPackageId: number | null,
+        priceDifference: number,
+        paymentMethod: any,
+        reason: string
+    ) {
+        return this.prisma.coachChangeRequest.create({
+            data: {
+                userId,
+                assignmentId,
+                oldCoachId,
+                newCoachId,
+                newPtPackageId: newPtPackageId ?? null,
+                priceDifference,
+                paymentMethod,
+                reason,
+                status: "PENDING"
+            }
+        });
+    }
+    // 2. Tạo hóa đơn PENDING cho tiền chênh lệch và liên kết vào yêu cầu đổi PT (sau khi Admin duyệt đồng ý)
+    public async createPendingUpgradePayment(requestId: number) {
+        return this.prisma.$transaction(async (tx) => {
+            const request = await tx.coachChangeRequest.findUnique({
+                where: { id: requestId }
+            });
+            if (!request) throw new Error("REQUEST_NOT_FOUND");
+            // Tạo hóa đơn PENDING đóng thêm tiền
+            const payment = await tx.payment.create({
+                data: {
+                    user_id: request.userId,
+                    coach_assignment_id: request.assignmentId,
+                    amount: request.priceDifference,
+                    method: request.paymentMethod,
+                    status: "PENDING"
+                }
+            });
+            // Cập nhật liên kết hóa đơn vào yêu cầu và đổi trạng thái sang AWAITING_PAYMENT
+            const updatedRequest = await tx.coachChangeRequest.update({
+                where: { id: requestId },
+                data: {
+                    paymentId: payment.id,
+                    status: "AWAITING_PAYMENT"
+                }
+            });
+            return { request: updatedRequest, payment };
+        });
+    }
+    // 3. TRANSACTION KÍCH HOẠT ĐỔI PT & GÓI TẬP: Khi tiền chênh lệch đã thanh toán thành công (hoặc khi đổi gói rẻ hơn/bằng tiền được duyệt trực tiếp)
+    public async executeCoachAndPackageChange(
+        requestId: number,
+        newSessions: number,
+        newPricePaid: number,
+        transactionRef: string = "UPGRADE_ACTIVE",
+        gatewayResponse?: any
+    ) {
+        return this.prisma.$transaction(async (tx) => {
+            const request = await tx.coachChangeRequest.findUnique({
+                where: { id: requestId }
+            });
+            if (!request) throw new Error("REQUEST_NOT_FOUND");
+            const assignment = await tx.coachAssignment.findUnique({
+                where: { id: request.assignmentId }
+            });
+            if (!assignment) throw new Error("ASSIGNMENT_NOT_FOUND");
+            const targetPackageId = request.newPtPackageId ?? assignment.ptPackageId;
+            // 1. Cập nhật PT mới, gói mới, reset số buổi tập và tổng tiền của hợp đồng PT
+            const updatedAssignment = await tx.coachAssignment.update({
+                where: { id: request.assignmentId },
+                data: {
+                    coachId: request.newCoachId,
+                    ptPackageId: targetPackageId,
+                    totalSessions: newSessions,
+                    remainingSessions: newSessions, // reset lại số buổi của gói mới
+                    pricePaid: newPricePaid // cập nhật tổng số tiền đã đóng thực tế
+                }
+            });
+            // 2. Xóa lịch hẹn chưa tập của PT cũ
+            await tx.workoutSession.deleteMany({
+                where: {
+                    userId: request.userId,
+                    coachId: request.oldCoachId,
+                    status: "PLANNED"
+                }
+            });
+            // 3. Chuyển trạng thái yêu cầu đổi thành APPROVED (Hoàn tất)
+            await tx.coachChangeRequest.update({
+                where: { id: requestId },
+                data: { status: "APPROVED" }
+            });
+            // 4. Cập nhật hóa đơn phụ (nếu có) thành PAID
+            if (request.paymentId) {
+                await tx.payment.update({
+                    where: { id: request.paymentId },
+                    data: {
+                        status: "PAID",
+                        paid_at: new Date(),
+                        transaction_ref: transactionRef,
+                        gateway_response: gatewayResponse ?? null
+                    }
+                });
+            }
+            return updatedAssignment;
+        });
+    }
+
+
     //Cap nhat trang thai yeu cau doi PT
     public async updateChangeRequestStatus(id: number, status: string) {
         return this.prisma.coachChangeRequest.update({
@@ -238,6 +357,103 @@ export class PtBookingRepository {
                 assignmentId,
                 status: "PENDING"
             }
+        });
+    }
+
+    // Lay tat ca yeu cau doi PT cua he thong
+    public async findChangeRequests(status?: string) {
+        return this.prisma.coachChangeRequest.findMany({
+            where: status ? { status } : {},
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        phone: true
+                    }
+                },
+                oldCoach: {
+                    include: {
+                        user: {
+                            select: {
+                                name: true
+                            }
+                        }
+                    }
+                },
+                newCoach: {
+                    include: {
+                        user: {
+                            select: {
+                                name: true
+                            }
+                        }
+                    }
+                },
+                newPtPackage: true,
+                payment: true
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+    }
+
+    // Lay danh sach dang ky PT cua 1 hoi vien
+    public async findUserAssignments(userId: number) {
+        return this.prisma.coachAssignment.findMany({
+            where: { userId },
+            include: {
+                coach: {
+                    include: {
+                        user: {
+                            select: {
+                                name: true,
+                                avatarUrl: true,
+                                phone: true
+                            }
+                        }
+                    }
+                },
+                ptPackage: true,
+                payments: {
+                    orderBy: { created_at: 'desc' }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+
+    // Admin lay toan bo hop dong thue PT tren he thong
+    public async findAllAssignments(status?: string) {
+        return this.prisma.coachAssignment.findMany({
+            where: status ? { status } : {},
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        phone: true
+                    }
+                },
+                coach: {
+                    include: {
+                        user: {
+                            select: {
+                                name: true,
+                                phone: true
+                            }
+                        }
+                    }
+                },
+                ptPackage: true,
+                payments: {
+                    orderBy: { created_at: 'desc' }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
         });
     }
 }

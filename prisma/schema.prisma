@@ -159,7 +159,8 @@ model Payment {
   membership          Membership?      @relation(fields: [membership_id], references: [id], onDelete: Cascade)
   plan                Plan?            @relation(fields: [plan_id], references: [id], onDelete: Restrict)
   coachAssignment     CoachAssignment? @relation(fields: [coach_assignment_id], references: [id], onDelete: Cascade)
-
+  coachChangeRequests CoachChangeRequest[]
+  
   @@map("payments")
   @@index([user_id])
   @@index([membership_id])
@@ -234,6 +235,7 @@ model PtPackage {
 
   coachPrices      CoachPtPackage[]
   assignments      CoachAssignment[]
+  changeRequests   CoachChangeRequest[] @relation("NewPackageRelation")
 
   @@map("pt_packages")
 }
@@ -338,24 +340,31 @@ model GroupClass {
 
 // 9. Yêu cầu đổi PT của hội viên
 model CoachChangeRequest {
-  id           Int      @id @default(autoincrement())
-  userId       Int      @map("user_id")
-  assignmentId Int      @map("assignment_id")
-  oldCoachId   Int      @map("old_coach_id")
-  newCoachId   Int      @map("new_coach_id")
-  reason       String   @db.Text
-  status       String   @default("PENDING") @db.VarChar(50) // PENDING, APPROVED, REJECTED
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id              Int             @id @default(autoincrement())
+  userId          Int             @map("user_id")
+  assignmentId    Int             @map("assignment_id")
+  oldCoachId      Int             @map("old_coach_id")
+  newCoachId      Int             @map("new_coach_id")
+  newPtPackageId  Int?            @map("new_pt_package_id")
+  priceDifference Decimal         @default(0.00) @map("price_difference") @db.Decimal(12, 2)
+  paymentId       Int?            @map("payment_id") // THÊM: Liên kết tới hóa đơn đóng thêm tiền
+  reason          String          @db.Text
+  status          String          @default("PENDING") @db.VarChar(50)
+  paymentMethod   PaymentMethod   @default(CASH) @map("payment_method")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
 
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignment   CoachAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  oldCoach     CoachProfile    @relation("OldCoachRelation", fields: [oldCoachId], references: [id], onDelete: Restrict)
-  newCoach     CoachProfile    @relation("NewCoachRelation", fields: [newCoachId], references: [id], onDelete: Restrict)
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignment      CoachAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  oldCoach        CoachProfile    @relation("OldCoachRelation", fields: [oldCoachId], references: [id], onDelete: Restrict)
+  newCoach        CoachProfile    @relation("NewCoachRelation", fields: [newCoachId], references: [id], onDelete: Restrict)
+  newPtPackage    PtPackage?      @relation("NewPackageRelation", fields: [newPtPackageId], references: [id], onDelete: SetNull)
+  payment         Payment?        @relation(fields: [paymentId], references: [id], onDelete: SetNull) // Quan hệ mới với Payment
 
   @@map("coach_change_requests")
   @@index([userId])
   @@index([assignmentId])
   @@index([oldCoachId])
   @@index([newCoachId])
+  @@index([paymentId])
 }

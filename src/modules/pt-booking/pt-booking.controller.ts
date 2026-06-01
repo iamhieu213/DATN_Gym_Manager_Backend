@@ -4,7 +4,6 @@ import { PtBookingService } from './pt-booking.service';
 import { PtBookingRepository } from './pt-booking.repository';
 import { PtPackageRepository } from '../pt-package/pt-package.repository';
 import { prisma } from '../../config/client';
-import { vnpayService } from '../../services/vnpay.service';
 
 const repository = new PtBookingRepository(prisma);
 const packageRepo = new PtPackageRepository(prisma);
@@ -42,6 +41,11 @@ const mapError = (msg: string) => {
             return { status: 400, message: "Chỉ được phép hủy đơn hàng chưa thanh toán." };
         case "FORBIDDEN": 
             return { status: 403, message: "Bạn không có quyền thực hiện hành động này." };
+        case "DOWNGRADE_NOT_SUPPORTED": 
+            return { 
+                status: 400, 
+                message: "Hệ thống không hỗ trợ đổi sang gói tập có giá trị thấp hơn gói hiện tại. Vui lòng liên hệ ban quản lý phòng gym để được hỗ trợ thủ công." 
+            };
         default: 
             return { status: 500, message: "Lỗi hệ thống. Vui lòng thử lại sau." };
     }
@@ -52,23 +56,18 @@ export const hirePt = async (req: AuthRequest, res: Response) => {
         const userId = req.user?.userId;
         if (!userId) throw new Error("FORBIDDEN");
 
+        // 1. Chỉ gọi service đăng ký thuê PT để tạo Hợp đồng (PENDING) và Hóa đơn (PENDING)
         const result = await service.hirePT(userId, req.body);
-        let paymentUrl: string | null = null;
 
-        if (req.body.paymentMethod === "VNPAY") {
-            const clientIp = req.ip || "127.0.0.1";
-            paymentUrl = vnpayService.createPaymentUrl(
-                result.paymentId,
-                Number(result.amount),
-                clientIp,
-                `Thanh toan thue PT: ID ${result.assignmentId}`
-            );
-        }
-
+        // 2. Trả về thông tin hóa đơn cho Frontend để Frontend tự gọi tiếp API thanh toán chung
         res.status(201).json({
             success: true,
-            message: "Đăng ký thuê PT thành công. Vui lòng thanh toán hóa đơn.",
-            data: { ...result, paymentUrl }
+            message: "Đăng ký thuê PT thành công. Vui lòng tiến hành thanh toán.",
+            data: { 
+                assignmentId: result.assignmentId,
+                paymentId: result.paymentId,
+                amount: result.amount
+            }
         });
     } catch (e: any) {
         const error = mapError(e.message);
@@ -102,38 +101,19 @@ export const getMyStudents = async (req: AuthRequest, res: Response) => {
     }
 };
 
-export const confirmCashPayment = async (req: AuthRequest, res: Response) => {
-    try {
-        const role = req.user?.role;
-        if (!role) throw new Error("FORBIDDEN");
-
-        const paymentId = parseInt(req.params.paymentId as string, 10);
-        await service.confirmPayment(role, paymentId);
-
-        res.status(200).json({ success: true, message: "Kích hoạt hợp đồng PT bằng tiền mặt thành công." });
-    } catch (e: any) {
-        const error = mapError(e.message);
-        res.status(error.status).json({ success: false, message: error.message });
-    }
-};
 
 export const requestOrExecuteCoachChange = async (req: AuthRequest, res: Response) => {
     try {
         const userId = req.user?.userId;
         if (!userId) throw new Error("FORBIDDEN");
 
-        const result = await service.requestOrExecuteCoachChange(userId, req.body);
-        let paymentUrl: string | null = null;
-
-        if (result.isDirectChange && result.payment && result.payment.method === "VNPAY") {
-            const clientIp = req.ip || "127.0.0.1";
-            paymentUrl = vnpayService.createPaymentUrl(
-                result.payment.id,
-                Number(result.payment.amount),
-                clientIp,
-                `Thanh toan thue PT: ID ${result.assignmentId}`
-            );
+        const assignmentId = parseInt(req.params.assignmentId as string, 10);
+        if (isNaN(assignmentId)) {
+            return res.status(400).json({ success: false, message: "Mã hợp đồng PT không hợp lệ." });
         }
+
+        // Gọi Service thực hiện đổi trực tiếp (chưa thanh toán) hoặc gửi yêu cầu chờ Admin duyệt (đã thanh toán)
+        const result = await service.requestOrExecuteCoachChange(userId, assignmentId, req.body);
 
         res.status(200).json({
             success: true,
@@ -142,7 +122,7 @@ export const requestOrExecuteCoachChange = async (req: AuthRequest, res: Respons
                 isDirectChange: result.isDirectChange,
                 assignmentId: result.assignmentId || null,
                 requestId: result.requestId || null,
-                paymentUrl
+                paymentId: result.payment ? result.payment.id : null
             }
         });
     } catch (e: any) {
@@ -178,17 +158,69 @@ export const adminDirectChangeCoach = async (req: AuthRequest, res: Response) =>
     }
 };
 
+// Admin/Staff phê duyệt yêu cầu đổi PT (Chỉ đồng ý hoặc từ chối)
 export const adminProcessChangeRequest = async (req: AuthRequest, res: Response) => {
     try {
         const role = req.user?.role;
         if (!role) throw new Error("FORBIDDEN");
-
         const requestId = parseInt(req.params.requestId as string, 10);
-        const approve = req.body.approve === true;
+        const approve = req.body.approve === true; // true = đồng ý duyệt, false = từ chối
 
-        await service.adminProcessChangeRequest(role, requestId, approve);
-        const msg = approve ? "Phê duyệt đổi PT thành công." : "Đã từ chối yêu cầu đổi PT.";
-        res.status(200).json({ success: true, message: msg });
+        const result = await service.adminProcessChangeRequest(role, requestId, approve);
+        
+        res.status(200).json({
+            success: true,
+            message: result.message,
+            data: {
+                status: result.status,
+                paymentId: (result as any).payment ? (result as any).payment.id : null
+            }
+        });
+    } catch (e: any) {
+        const error = mapError(e.message);
+        res.status(error.status).json({ success: false, message: error.message });
+    }
+};
+
+
+// Admin/Staff xem danh sách yêu cầu đổi PT
+export const getChangeRequests = async (req: AuthRequest, res: Response) => {
+    try {
+        const role = req.user?.role;
+        if (!role) throw new Error("FORBIDDEN");
+
+        const status = req.query.status as string | undefined;
+        const data = await service.getChangeRequests(role, status);
+        res.status(200).json({ success: true, data });
+    } catch (e: any) {
+        const error = mapError(e.message);
+        res.status(error.status).json({ success: false, message: error.message });
+    }
+};
+
+// Hội viên xem lịch sử/đăng ký thuê PT của mình
+export const getMyAssignments = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) throw new Error("FORBIDDEN");
+
+        const data = await service.getMyAssignments(userId);
+        res.status(200).json({ success: true, data });
+    } catch (e: any) {
+        const error = mapError(e.message);
+        res.status(error.status).json({ success: false, message: error.message });
+    }
+};
+
+// Admin/Staff xem toàn bộ hợp đồng thuê PT của hệ thống
+export const adminGetAssignments = async (req: AuthRequest, res: Response) => {
+    try {
+        const role = req.user?.role;
+        if (!role) throw new Error("FORBIDDEN");
+
+        const status = req.query.status as string | undefined;
+        const data = await service.adminGetAssignments(role, status);
+        res.status(200).json({ success: true, data });
     } catch (e: any) {
         const error = mapError(e.message);
         res.status(error.status).json({ success: false, message: error.message });

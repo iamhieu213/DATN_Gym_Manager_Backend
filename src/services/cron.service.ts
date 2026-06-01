@@ -18,47 +18,52 @@ export const startCleanupCron = () => {
                     created_at: {
                         lt: fifteenMinutesAgo
                     }
+                },
+                include: {
+                    coachAssignment: true
                 }
             });
 
             if (expiredPayments.length > 0) {
-                const paymentIds = expiredPayments.map((p) => p.id);
-                const membershipIds = expiredPayments
-                    .map((p) => p.membership_id)
-                    .filter((id): id is number => id !== null);
-                const coachAssignmentIds = expiredPayments
-                    .map((p) => p.coach_assignment_id)
-                    .filter((id): id is number => id !== null);
-
                 // 2. Thực hiện cập nhật trạng thái trong 1 Transaction
                 await prisma.$transaction(async (tx) => {
-                    // Cập nhật trạng thái Payment sang FAILED
-                    await tx.payment.updateMany({
-                        where: { id: { in: paymentIds } },
-                        data: { status: "FAILED" }
-                    });
+                    for (const payment of expiredPayments) {
+                        if (payment.coach_assignment_id && payment.coachAssignment) {
+                            const assignment = payment.coachAssignment;
 
-                    // Cập nhật hợp đồng PT (CoachAssignment) sang CANCELLED
-                    if (coachAssignmentIds.length > 0) {
-                        await tx.coachAssignment.updateMany({
-                            where: { id: { in: coachAssignmentIds } },
-                            data: { status: "CANCELLED" }
-                        });
-                    }
+                            // CHỈ XỬ LÝ HỦY nếu đây là hóa đơn đăng ký mới (hợp đồng gốc đang PENDING)
+                            if (assignment.status === "PENDING") {
+                                // Chuyển hóa đơn sang FAILED
+                                await tx.payment.update({
+                                    where: { id: payment.id },
+                                    data: { status: "FAILED" }
+                                });
 
-                    // Cập nhật trạng thái gói hội viên thường (Membership) sang CANCELLED và is_active = false
-                    if (membershipIds.length > 0) {
-                        await tx.membership.updateMany({
-                            where: { id: { in: membershipIds } },
-                            data: {
-                                status: "CANCELLED",
-                                is_active: false
+                                // Hủy hợp đồng PENDING đăng ký mới
+                                await tx.coachAssignment.update({
+                                    where: { id: assignment.id },
+                                    data: { status: "CANCELLED" }
+                                });
                             }
-                        });
+                            
+                            // NẾU assignment.status === "ACTIVE" (hóa đơn đóng thêm tiền đổi gói): 
+                            // Cron Job sẽ BỎ QUA không tự động hủy sau 15 phút, cho phép hội viên thanh toán muộn hơn.
+                        }
+
+                        // Đối với Membership thường nếu hết hạn: Chuyển hóa đơn sang FAILED và Xóa cứng Membership
+                        if (payment.membership_id) {
+                            await tx.payment.update({
+                                where: { id: payment.id },
+                                data: { status: "FAILED" }
+                            });
+                            await tx.membership.deleteMany({
+                                where: { id: payment.membership_id }
+                            });
+                        }
                     }
                 });
 
-                console.log(`[Cron Job] Đã tự động hủy thành công ${expiredPayments.length} hóa đơn online quá hạn 15p.`);
+                console.log(`[Cron Job] Đã quét và xử lý dọn dẹp xong ${expiredPayments.length} hóa đơn online quá hạn 15p.`);
             } else {
                 console.log("[Cron Job] Không có hóa đơn nào quá hạn.");
             }
