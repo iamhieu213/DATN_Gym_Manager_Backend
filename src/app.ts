@@ -8,6 +8,7 @@ import checkInRoutes from './modules/checkin/checkin.route'
 import coachRoutes from './modules/coach/coach.route'
 import ptPackageRoutes from './modules/pt-package/pt-package.route'
 import ptBooking from './modules/pt-booking/pt-booking.route'
+import paymentRoutes from './modules/payment/payment.route';
 import cookieParser from 'cookie-parser';
 const app = express();
 
@@ -38,4 +39,5 @@ app.use("/check-in", checkInRoutes);
 app.use("/coach", coachRoutes);
 app.use("/pt-package", ptPackageRoutes);
 app.use("/pt-booking", ptBooking);
+app.use("/payments", paymentRoutes);
 export default app;

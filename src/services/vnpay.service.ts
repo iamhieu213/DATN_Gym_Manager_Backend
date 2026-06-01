@@ -18,7 +18,7 @@ export class VnpayService {
             vnp_TmnCode: this.tmnCode,
             vnp_Locale: "vn",
             vnp_CurrCode: "VND",
-            vnp_TxnRef: paymentId.toString(),
+            vnp_TxnRef: `${paymentId}_${createDate}`,
             vnp_OrderInfo: description,
             vnp_OrderType: "other",
             vnp_Amount: Math.round(amount * 100).toString(), // VNPAY yêu cầu nhân 100 lần số tiền thực tế

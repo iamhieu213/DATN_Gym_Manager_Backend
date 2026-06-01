@@ -5,8 +5,9 @@ export interface HirePtDto {
     paymentMethod: PaymentMethod;
 }
 export interface RequestCoachChangeDto {
-    assignmentId: number;
     newCoachId: number;
+    newPtPackageId? : number;
+    paymentMethod : PaymentMethod;
     reason?: string; // Không bắt buộc khi đổi trực tiếp (chưa thanh toán)
 }
 export interface AdminDirectChangeCoachDto {
