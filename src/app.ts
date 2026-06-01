@@ -9,6 +9,8 @@ import coachRoutes from './modules/coach/coach.route'
 import ptPackageRoutes from './modules/pt-package/pt-package.route'
 import ptBooking from './modules/pt-booking/pt-booking.route'
 import paymentRoutes from './modules/payment/payment.route';
+import equipmentRoutes from './modules/equipment/equipment.route';
+
 import cookieParser from 'cookie-parser';
 const app = express();
 
@@ -40,4 +42,5 @@ app.use("/coach", coachRoutes);
 app.use("/pt-package", ptPackageRoutes);
 app.use("/pt-booking", ptBooking);
 app.use("/payments", paymentRoutes);
+app.use("/equipment", equipmentRoutes);
 export default app;

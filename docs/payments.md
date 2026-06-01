@@ -4,6 +4,17 @@ Base path: `/payments`
 
 Các callback VNPAY không cần auth. Các API còn lại cần Bearer token.
 
+## Cảnh báo theo route hiện tại
+
+Trong `src/modules/payment/payment.route.ts`, route `GET /:paymentId` đang được khai báo trước `GET /list`. Với Express, request `GET /payments/list` sẽ bị match vào `/:paymentId` trước, làm `paymentId = "list"` và trả lỗi mã hóa đơn không hợp lệ.
+
+Để `GET /payments/list` hoạt động đúng, nên đặt `router.get('/list', adminGetPayments)` trước `router.get('/:paymentId', getPaymentDetail)`.
+
+## Enum liên quan
+
+- `PaymentMethod`: `CASH`, `VNPAY`, `MOMO`, `BANK_TRANSFER`
+- `PaymentStatus`: `PENDING`, `PAID`, `FAILED`, `REFUNDED`
+
 ## Kiểu dữ liệu payment
 
 ```json
@@ -40,7 +51,17 @@ Trả về `200` theo format VNPAY:
 }
 ```
 
-Các mã khác: `97` sai chữ ký, `01` không thấy order, `04` sai amount, `02` order đã xác nhận, `99` lỗi hệ thống.
+Các mã khác:
+
+| RspCode | Ý nghĩa |
+| --- | --- |
+| `97` | Sai chữ ký |
+| `01` | Không tìm thấy order/payment |
+| `04` | Sai số tiền |
+| `02` | Order đã được xác nhận trước đó |
+| `99` | Lỗi hệ thống |
+
+Nếu `vnp_ResponseCode = "00"`, service xác nhận payment. Nếu không, payment được cập nhật `FAILED`.
 
 ## GET `/payments/vnpay-return`
 
@@ -48,19 +69,25 @@ Return URL sau thanh toán VNPAY.
 
 Auth: không cần.
 
-Trả về: HTML thông báo thanh toán thành công/thất bại. Nếu thanh toán thành công và payment còn `PENDING`, service sẽ xác nhận payment.
+Query: các tham số VNPAY tương tự IPN.
+
+Trả về: HTML thông báo thành công/thất bại. Nếu thanh toán thành công và payment còn `PENDING`, service xác nhận payment.
 
 ## POST `/payments/:paymentId/pay`
 
 Tạo link thanh toán VNPAY cho hóa đơn.
 
-Quyền: chủ hóa đơn.
+Auth: cần Bearer token.
+
+Quyền: user chỉ thanh toán được hóa đơn của chính mình.
 
 Path params:
 
 | Tên | Mô tả |
 | --- | --- |
 | `paymentId` | ID hóa đơn |
+
+Body: không dùng trong controller hiện tại. Nếu payment đang có method khác `VNPAY`, service tự cập nhật method sang `VNPAY`.
 
 Thành công `200`:
 
@@ -76,13 +103,19 @@ Thành công `200`:
 }
 ```
 
-Ghi chú: nếu payment đang là phương thức khác, service tự chuyển `method` sang `VNPAY`.
+Lỗi thường gặp:
+
+| Status | Lỗi |
+| --- | --- |
+| `400` | Mã hóa đơn không hợp lệ, `PAYMENT_ALREADY_PROCESSED` |
+| `403` | `FORBIDDEN` |
+| `404` | `PAYMENT_NOT_FOUND` |
 
 ## GET `/payments/my-history`
 
 Lấy lịch sử giao dịch của user đang đăng nhập.
 
-Quyền: user đã đăng nhập.
+Auth: cần Bearer token.
 
 Trả về `200`:
 
@@ -104,13 +137,77 @@ Trả về `200`:
 }
 ```
 
+`data` là danh sách payment của user, sắp xếp `created_at` giảm dần, include:
+
+- `membership.plan`
+- `coachAssignment.ptPackage`
+
+## GET `/payments/:paymentId`
+
+Xem chi tiết một hóa đơn.
+
+Auth: cần Bearer token.
+
+Quyền:
+
+- `ADMIN`, `STAFF`: xem được mọi hóa đơn.
+- User thường: chỉ xem được hóa đơn của chính mình.
+
+Path params:
+
+| Tên | Mô tả |
+| --- | --- |
+| `paymentId` | ID hóa đơn |
+
+Trả về `200`:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "user_id": 1,
+    "membership_id": 1,
+    "coach_assignment_id": null,
+    "amount": "500000",
+    "method": "VNPAY",
+    "status": "PENDING",
+    "user": {
+      "id": 1,
+      "name": "Nguyen Van A",
+      "email": "user@example.com",
+      "phone": "0900000000"
+    },
+    "membership": {
+      "plan": {}
+    },
+    "coachAssignment": null
+  }
+}
+```
+
+Nếu là hóa đơn PT, `coachAssignment` include:
+
+- `ptPackage`
+- `coach.user.name`
+
+Lỗi thường gặp: `PAYMENT_NOT_FOUND`, `FORBIDDEN`.
+
 ## POST `/payments/:paymentId/confirm`
 
 Admin/staff xác nhận thanh toán tiền mặt.
 
+Auth: cần Bearer token.
+
 Quyền theo service nghiệp vụ: `ADMIN`, `STAFF`.
 
-Trả về `200`:
+Path params:
+
+| Tên | Mô tả |
+| --- | --- |
+| `paymentId` | ID hóa đơn |
+
+Thành công `200`:
 
 ```json
 {
@@ -119,17 +216,52 @@ Trả về `200`:
 }
 ```
 
-## GET `/payments/admin/list`
+Service sẽ điều phối:
 
-Admin/staff xem danh sách hóa đơn.
+- Payment membership: gọi `MembershipsService.confirmPayment`.
+- Payment PT assignment: gọi `PtBookingService.confirmPayment`.
+- Payment khác: cập nhật payment sang `PAID`.
+
+## GET `/payments/list`
+
+Admin/staff xem danh sách hóa đơn có phân trang, tìm kiếm và lọc trạng thái.
+
+Auth: cần Bearer token.
 
 Quyền: `ADMIN`, `STAFF`.
+
+Lưu ý route order: với code hiện tại endpoint này bị `GET /:paymentId` bắt trước. Cần đổi thứ tự route như ghi ở đầu file.
 
 Query:
 
 | Tên | Mô tả |
 | --- | --- |
+| `page` | Trang, mặc định `1` |
+| `limit` | Số bản ghi/trang, mặc định `10` |
 | `status` | Lọc theo `PENDING`, `PAID`, `FAILED`, `REFUNDED` |
+| `search` | Tìm theo user `name`, `email`, `phone` |
 
-Trả về `200`: `data` là mảng payment kèm user, membership/plan hoặc coachAssignment/ptPackage.
+Trả về `200`:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "amount": "500000",
+      "method": "CASH",
+      "status": "PENDING",
+      "created_at": "2026-06-01T00:00:00.000Z"
+    }
+  ],
+  "meta": {
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1
+  }
+}
+```
 
