@@ -31,3 +31,17 @@ export interface ListQueryEquipmentDetailDto {
     page?: string;
     limit?: string;
 }
+
+export interface CreateMaintenanceTaskDto {
+    equipmentIds: number[];
+    title: string;
+    description?: string;
+    scheduledAt: string; // Định dạng "YYYY-MM-DD"
+    priority: 'CRITICAL' | 'ROUTINE' | 'NORMAL';
+    assignedTeam?: string;
+}
+export interface UpdateMaintenanceTaskDto {
+    status?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+    cost?: number;
+    notes?: string;
+}

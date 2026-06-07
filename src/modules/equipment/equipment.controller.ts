@@ -14,6 +14,7 @@ const service = new EquipmentService(repository);
 const mapError = (msg: string) => {
     switch (msg) {
         case 'EQUIPMENT_NOT_FOUND': return { status: 404, message: 'Không tìm thấy thiết bị.' };
+        case 'MAINTENANCE_TASK_NOT_FOUND': return { status: 404, message: 'Không tìm thấy lịch bảo trì.' };
         case 'FORBIDDEN': return { status: 403, message: 'Bạn không có quyền thực hiện hành động này.' };
         case 'INVALID_QUANTITY': return { status: 400, message: 'Số lượng thiết bị phải lớn hơn 0.' };
         case 'BAD_REQUEST': return { status: 400, message: 'Yêu cầu không hợp lệ.' };
@@ -126,3 +127,66 @@ export const bulkDeleteEquipment = async (req: AuthRequest, res: Response) => {
         res.status(error.status).json({ success: false, message: error.message });
     }
 };
+
+// 8. Lấy tổng số lượng thiết bị theo trạng thái
+export const getEquipmentStats = async (req: AuthRequest, res: Response) => {
+    try {
+        const role = req.user?.role;
+        if (!role) throw new Error('FORBIDDEN');
+        
+        const data = await service.getEquipmentStats(role);
+        res.status(200).json({ success: true, data });
+    } catch (e: any) {
+        console.error('Error in getEquipmentStats:', e);
+        const error = mapError(e.message);
+        res.status(error.status).json({ success: false, message: error.message });
+    }
+};
+
+// 9. Lấy danh sách nhiệm vụ bảo trì sắp tới
+export const getMaintenanceTasks = async (req: AuthRequest, res: Response) => {
+    try {
+        const month = req.query.month ? parseInt(req.query.month as string, 10) : undefined;
+        const year = req.query.year ? parseInt(req.query.year as string, 10) : undefined;
+        
+        const data = await service.getMaintenanceTasks(month, year);
+        res.status(200).json({ success: true, data });
+    } catch (e: any) {
+        console.error('Error in getMaintenanceTasks:', e);
+        const error = mapError(e.message);
+        res.status(error.status).json({ success: false, message: error.message });
+    }
+};
+
+// 10. Lên lịch bảo trì mới (hỗ trợ hàng loạt)
+export const createMaintenanceTask = async (req: AuthRequest, res: Response) => {
+    try {
+        const role = req.user?.role;
+        if (!role) throw new Error('FORBIDDEN');
+        
+        const data = await service.createMaintenanceTask(role, req.body);
+        res.status(201).json({ success: true, message: 'Đã lên lịch bảo trì thiết bị.', data });
+    } catch (e: any) {
+        console.error('Error in createMaintenanceTask:', e);
+        const error = mapError(e.message);
+        res.status(error.status).json({ success: false, message: error.message });
+    }
+};
+
+// 11. Cập nhật lịch bảo trì
+export const updateMaintenanceTask = async (req: AuthRequest, res: Response) => {
+    try {
+        const role = req.user?.role;
+        if (!role) throw new Error('FORBIDDEN');
+        const id = parseInt(req.params.id as string, 10);
+        if (isNaN(id)) throw new Error('BAD_REQUEST');
+        
+        const data = await service.updateMaintenanceTask(role, id, req.body);
+        res.status(200).json({ success: true, message: 'Cập nhật lịch bảo trì thành công.', data });
+    } catch (e: any) {
+        console.error('Error in updateMaintenanceTask:', e);
+        const error = mapError(e.message);
+        res.status(error.status).json({ success: false, message: error.message });
+    }
+};
+

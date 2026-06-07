@@ -388,6 +388,47 @@ model Equipment {
   createdAt           DateTime        @default(now()) @map("created_at")
   updatedAt           DateTime        @updatedAt @map("updated_at")
 
+  maintenanceTasks    MaintenanceTask[]
+
   @@map("equipments")
+  @@index([status])
+}
+
+// Mức độ ưu tiên của công việc bảo trì
+enum MaintenancePriority {
+  CRITICAL  // Khẩn cấp (Ví dụ: hỏng cáp tạ)
+  ROUTINE   // Định kỳ (Ví dụ: nạp khí nitơ)
+  NORMAL    // Bình thường
+}
+
+// Trạng thái của công việc bảo trì
+enum MaintenanceStatus {
+  PENDING       // Đang chờ thực hiện
+  IN_PROGRESS   // Đang tiến hành sửa chữa
+  COMPLETED     // Đã hoàn thành
+  CANCELLED     // Đã hủy lịch
+}
+
+model MaintenanceTask {
+  id           Int                 @id @default(autoincrement())
+  equipmentId  Int                 @map("equipment_id") // ID thiết bị cần sửa
+  title        String              @db.VarChar(255)     // Tiêu đề đầu việc (Ví dụ: "Cân chỉnh băng tải")
+  description  String?             @db.Text             // Mô tả chi tiết (Ví dụ: "Cần chỉnh 6 máy chạy bộ sảnh A")
+  scheduledAt  DateTime            @map("scheduled_at") // Ngày lên lịch thực hiện
+  completedAt  DateTime?           @map("completed_at") // Ngày thực tế hoàn thành
+  priority     MaintenancePriority @default(NORMAL)
+  status       MaintenanceStatus   @default(PENDING)
+  assignedTeam String?             @map("assigned_team") @db.VarChar(255) // Đội kỹ thuật phụ trách (Ví dụ: "Engineering Team")
+  cost         Decimal?            @db.Decimal(12, 2)   // Chi phí sửa chữa (nếu có)
+  notes        String?             @db.Text             // Ghi chú thêm
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  // Thiết lập mối quan hệ với bảng Equipment
+  equipment    Equipment           @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@map("maintenance_tasks")
+  @@index([equipmentId])
+  @@index([scheduledAt])
   @@index([status])
 }
