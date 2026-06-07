@@ -1,9 +1,9 @@
 import { EquipmentRepository } from "./equipment.repository";
-import { CreateEquipmentDto, UpdateEquipmentDto, BulkUpdateEquipmentDto, BulkDeleteEquipmentDto, ListQueryEquipmentDetailDto } from "./equipment.dto";
+import { CreateEquipmentDto, UpdateEquipmentDto, BulkUpdateEquipmentDto, BulkDeleteEquipmentDto, ListQueryEquipmentDetailDto, CreateMaintenanceTaskDto, UpdateMaintenanceTaskDto } from "./equipment.dto";
 import { EquipmentStatus } from '@prisma/client'
 
 export class EquipmentService {
-    constructor(private readonly repository : EquipmentRepository) {}
+    constructor(private readonly repository: EquipmentRepository) { }
 
     //1.Them moi thiet bi hang loat + sinh ma tu dong
     public async createEquipment(role: string, dto: CreateEquipmentDto) {
@@ -43,7 +43,7 @@ export class EquipmentService {
         return newEquipments.length;
     }
 
-     public async getEquipmentSummary(query: { search?: string }) {
+    public async getEquipmentSummary(query: { search?: string }) {
         const where: any = {};
         if (query.search) {
             where.name = {
@@ -74,20 +74,20 @@ export class EquipmentService {
     }
 
     //Lay chi tiet cac may (khong cho USER xem thong tin nhay cam)
-    public async getEquipmentGroupDetails(role : string, name : string, query : ListQueryEquipmentDetailDto) {
-        if(!name)throw new Error('BAD_REQUEST');
+    public async getEquipmentGroupDetails(role : string, name : string | undefined, query : ListQueryEquipmentDetailDto) {
+        // name là optional để hỗ trợ hiển thị toàn bộ thiết bị sảnh gym
 
         const page = Number(query.page ?? 1);
         const limit = Number(query.limit ?? 10);
         const skip = (page - 1) * limit;
 
-        const where : any = {};
+        const where: any = {};
 
-        if(query.status){
+        if (query.status) {
             where.status = query.status as EquipmentStatus;
         }
 
-        if(query.search) {
+        if (query.search) {
             where.code = {
                 contains: query.search,
                 mode: 'insensitive'
@@ -100,34 +100,34 @@ export class EquipmentService {
             this.repository.countByName(name, where)
         ]);
 
-        const processedItems = role === 'USER' || role === 'COACH' 
+        const processedItems = role === 'USER' || role === 'COACH'
             ? items.map(item => ({ id: item.id, name: item.name, code: item.code, status: item.status })) : items;
 
-            return {
-                data: processedItems,
-                meta: {
-                    total,
-                    page,
-                    limit,
-                    totalPages: Math.ceil(total / limit)
-                }
+        return {
+            data: processedItems,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
             }
+        }
     }
 
     //Cap nhat 1 thiet bi
-    public async updateEquipment(role : string, id : number, dto: UpdateEquipmentDto) {
+    public async updateEquipment(role: string, id: number, dto: UpdateEquipmentDto) {
         if (role !== 'ADMIN' && role !== 'STAFF') {
             throw new Error('FORBIDDEN');
         }
 
         const existing = await this.repository.findById(id);
-        if(!existing) {
+        if (!existing) {
             throw new Error('EQUIPMENT_NOT_FOUND');
         }
 
-        const updateData : any = {};
-        if(dto.status) updateData.status = dto.status;
-        if(dto.note !== undefined) updateData.note = dto.note;
+        const updateData: any = {};
+        if (dto.status) updateData.status = dto.status;
+        if (dto.note !== undefined) updateData.note = dto.note;
         if (dto.lastMaintenanceDate) {
             updateData.lastMaintenanceDate = new Date(dto.lastMaintenanceDate);
         }
@@ -136,10 +136,10 @@ export class EquipmentService {
     }
 
     //Cap nhat hang loat thiet bi
-    public async bulkUpdateEquipment(role : string, dto: BulkUpdateEquipmentDto) {
-        if(role !== 'ADMIN' && role !== 'STAFF') {
+    public async bulkUpdateEquipment(role: string, dto: BulkUpdateEquipmentDto) {
+        if (role !== 'ADMIN' && role !== 'STAFF') {
             throw new Error('FORBIDDEN');
-        }   
+        }
 
         if (!dto.ids || dto.ids.length === 0) {
             throw new Error('BAD_REQUEST');
@@ -155,7 +155,7 @@ export class EquipmentService {
         return result.count;
     }
 
-     // 6. Xóa 1 thiết bị cụ thể (ADMIN, STAFF)
+    // 6. Xóa 1 thiết bị cụ thể (ADMIN, STAFF)
     public async deleteEquipment(role: string, id: number) {
         if (role !== 'ADMIN' && role !== 'STAFF') {
             throw new Error('FORBIDDEN');
@@ -166,7 +166,7 @@ export class EquipmentService {
         }
         await this.repository.delete(id);
     }
-    
+
     // 7. Xóa hàng loạt thiết bị (ADMIN, STAFF)
     public async bulkDeleteEquipment(role: string, ids: number[]) {
         if (role !== 'ADMIN' && role !== 'STAFF') {
@@ -178,4 +178,118 @@ export class EquipmentService {
         const result = await this.repository.deleteMany(ids);
         return result.count;
     }
+
+    // 8. Lấy tổng số lượng thiết bị theo trạng thái
+    public async getEquipmentStats(role: string) {
+        if (role !== 'ADMIN' && role !== 'STAFF') {
+            throw new Error('FORBIDDEN');
+        }
+        const rawStats = await this.repository.getStatsSummary();
+
+        const stats = {
+            total: 0,
+            operational: 0,
+            underMaintenance: 0,
+            outOfService: 0
+        };
+
+        rawStats.forEach(item => {
+            const count = item._count.id;
+            stats.total += count; // Cộng dồn vào tổng số máy
+
+            if (item.status === 'OPERATIONAL') {
+                stats.operational = count;
+            } else if (item.status === 'UNDER_MAINTENANCE') {
+                stats.underMaintenance = count;
+            } else if (item.status === 'OUT_OF_SERVICE') {
+                stats.outOfService = count;
+            }
+        });
+
+        return stats;
+    }
+
+    // Thêm vào trong class EquipmentService:
+
+// 1. Lấy danh sách nhiệm vụ bảo trì sắp tới
+public async getMaintenanceTasks(month?: number, year?: number) {
+    const where: any = {};
+    
+    // Nếu có lọc theo tháng/năm
+    if (month && year) {
+        const startOfMonth = new Date(year, month - 1, 1);
+        const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+        where.scheduledAt = {
+            gte: startOfMonth,
+            lte: endOfMonth
+        };
+    } else {
+        // Mặc định lấy các lịch chưa hoàn thành (PENDING, IN_PROGRESS)
+        where.status = { in: ['PENDING', 'IN_PROGRESS'] };
+    }
+
+    return this.repository.findMaintenanceTasks(where);
+}
+
+// 2. Lên lịch bảo trì mới (hỗ trợ hàng loạt) & Tự động đổi trạng thái máy sang UNDER_MAINTENANCE
+public async createMaintenanceTask(role: string, dto: CreateMaintenanceTaskDto) {
+    if (role !== 'ADMIN' && role !== 'STAFF') {
+        throw new Error('FORBIDDEN');
+    }
+
+    const { equipmentIds, title, description, scheduledAt, priority, assignedTeam } = dto;
+    if (!equipmentIds || equipmentIds.length === 0) {
+        throw new Error('BAD_REQUEST');
+    }
+
+    // Tạo lịch bảo trì cho toàn bộ danh sách máy song song
+    const tasks = await Promise.all(
+        equipmentIds.map(id => 
+            this.repository.createMaintenanceTask({
+                equipmentId: id,
+                title,
+                description: description || null,
+                scheduledAt: new Date(scheduledAt),
+                priority,
+                assignedTeam: assignedTeam || null
+            })
+        )
+    );
+
+    // Tự động chuyển trạng thái của tất cả các máy này sang ĐANG BẢO TRÌ
+    await this.repository.updateMany(equipmentIds, { status: 'UNDER_MAINTENANCE' });
+
+    return tasks;
+}
+
+// 3. Hoàn thành bảo trì & Tự động chuyển máy về OPERATIONAL
+public async updateMaintenanceTask(role: string, id: number, dto: UpdateMaintenanceTaskDto) {
+    if (role !== 'ADMIN' && role !== 'STAFF') {
+        throw new Error('FORBIDDEN');
+    }
+
+    const task = await this.repository.findMaintenanceTaskById(id);
+    if (!task) throw new Error('MAINTENANCE_TASK_NOT_FOUND');
+
+    const updateData: any = {};
+    if (dto.status) updateData.status = dto.status;
+    if (dto.cost !== undefined) updateData.cost = dto.cost;
+    if (dto.notes !== undefined) updateData.notes = dto.notes;
+
+    if (dto.status === 'COMPLETED') {
+        updateData.completedAt = new Date();
+    }
+
+    const updatedTask = await this.repository.updateMaintenanceTask(id, updateData);
+
+    // Nếu sửa xong (COMPLETED), chuyển máy về Hoạt động tốt & cập nhật ngày sửa cuối
+    if (dto.status === 'COMPLETED') {
+        await this.repository.update(task.equipmentId, {
+            status: 'OPERATIONAL',
+            lastMaintenanceDate: new Date()
+        });
+    }
+
+    return updatedTask;
+}
 }
