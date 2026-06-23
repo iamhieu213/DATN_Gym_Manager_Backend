@@ -74,10 +74,11 @@ export const getMyAvailability = async (req: AuthRequest, res: Response) => {
 export const getCoachesForAdmin = async (req: AuthRequest, res: Response) => {
     try {
         const role = req.user?.role;
-        if (!role) throw new Error("FORBIDDEN");
+        const actorBranchId = req.user?.branchId;
+        if (!role || (role !== 'ADMIN' && role !== 'STAFF')) throw new Error("FORBIDDEN");
 
         const queryParams = req.query as unknown as any; // Cast tạm sang any để gửi vào Service
-        const result = await coachService.getAllCoachesForAdmin(role, queryParams);
+        const result = await coachService.getAllCoachesForAdmin(role, actorBranchId, queryParams);
         
         res.status(200).json({ success: true, ...result });
     } catch (e: any) {

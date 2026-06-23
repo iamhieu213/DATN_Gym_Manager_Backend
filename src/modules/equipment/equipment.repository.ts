@@ -95,9 +95,10 @@ export class EquipmentRepository {
     }
 
     // Thống kê số lượng thiết bị theo trạng thái
-    public async getStatsSummary() {
+    public async getStatsSummary(branchId? : number) {
         return this.prisma.equipment.groupBy({
             by: ['status'],
+            where : branchId ? { branchId } : {},
             _count: {
                 id: true
             }

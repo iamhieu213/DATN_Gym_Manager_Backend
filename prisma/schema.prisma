@@ -77,6 +77,9 @@ model User {
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")
 
+  branchId          Int?         @map("branch_id")
+  branch            GymBranch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
   memberships       Membership[]
   payments          Payment[]
   checkIns            CheckIn[]
@@ -155,6 +158,9 @@ model Payment {
   paid_at             DateTime?        @map("paid_at")
   created_at          DateTime         @default(now()) @map("created_at")
 
+  branchId            Int?             @map("branch_id")
+  branch              GymBranch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
   user                User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
   membership          Membership?      @relation(fields: [membership_id], references: [id], onDelete: Cascade)
   plan                Plan?            @relation(fields: [plan_id], references: [id], onDelete: Restrict)
@@ -173,6 +179,10 @@ model CheckIn {
   userId     Int      @map("user_id")
   checkInAt  DateTime @default(now()) @map("check_in_at")
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  branchId   Int      @map("branch_id")
+  branch     GymBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
   @@map("check_ins")
   @@index([userId])
   @@index([checkInAt])
@@ -333,6 +343,9 @@ model GroupClass {
 
   coach           CoachProfile     @relation(fields: [coachId], references: [id], onDelete: Restrict)
 
+  branchId        Int              @map("branch_id")
+  branch          GymBranch        @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
   @@map("group_classes")
   @@index([coachId])
   @@index([scheduledAt])
@@ -390,6 +403,9 @@ model Equipment {
 
   maintenanceTasks    MaintenanceTask[]
 
+  branchId            Int             @map("branch_id")
+  branch              GymBranch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
   @@map("equipments")
   @@index([status])
 }
@@ -431,4 +447,24 @@ model MaintenanceTask {
   @@index([equipmentId])
   @@index([scheduledAt])
   @@index([status])
+}
+
+model GymBranch {
+  id          Int            @id @default(autoincrement())
+  name        String         @db.VarChar(255) // Ví dụ: "Gym Center Quận 1"
+  code        String         @unique @db.VarChar(50) // Ví dụ: "CN_Q1" dùng để nhận diện
+  address     String         @db.VarChar(255)
+  phone       String?        @db.VarChar(30)
+  isActive    Boolean        @default(true) @map("is_active")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  // Thiết lập các mối quan hệ (Một chi nhánh có nhiều User, Thiết bị, Lượt check-in, v.v...)
+  users        User[]
+  equipments   Equipment[]
+  checkIns     CheckIn[]
+  groupClasses GroupClass[]
+  payments     Payment[]
+
+  @@map("gym_branches")
 }

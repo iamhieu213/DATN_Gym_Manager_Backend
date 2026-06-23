@@ -9,4 +9,5 @@ export interface ListPaymentsQueryDto {
     status?: string;   // Lọc theo trạng thái PENDING, PAID, FAILED
     page?: string;     // Số trang
     limit?: string;    // Số lượng bản ghi mỗi trang
+    branchId? : string
 }

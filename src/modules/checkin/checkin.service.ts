@@ -6,7 +6,7 @@ export class CheckInService {
     constructor(private readonly checkInRepository: CheckInRepository) { }
 
     //Thuc hien checkin
-     public async checkIn(phone: string) {
+     public async checkIn(phone: string, branchId : number) {
         // 1. Tìm user theo số điện thoại
         const user = await this.checkInRepository.findUserByPhone(phone);
         if (!user) {
@@ -48,7 +48,7 @@ export class CheckInService {
             }
         }
         // 3. Ghi nhận lịch sử check-in vào Database (Cho tập bao nhiêu lần tùy thích)
-        const checkInRecord = await this.checkInRepository.createCheckIn(userId);
+        const checkInRecord = await this.checkInRepository.createCheckIn(userId, branchId);
         // 4. Trả về thông tin chào mừng
         return {
             checkInId: checkInRecord.id,
@@ -81,7 +81,7 @@ export class CheckInService {
         };
     }
     // Lấy lịch sử toàn phòng tập cho Admin/Staff
-    public async getAllHistory(role: string, query: ListCheckInQueryDto) {
+    public async getAllHistory(role: string, actorBranchId : number | null | undefined, query: ListCheckInQueryDto) {
         if (role !== 'ADMIN' && role !== 'STAFF') {
             throw new Error("FORBIDDEN");
         }
@@ -89,6 +89,12 @@ export class CheckInService {
         const limit = Number(query.limit ?? 10);
         const skip = (page - 1) * limit;
         const where: any = {};
+
+        if(role === 'STAFF'){
+            where.branchId = actorBranchId ?? undefined;
+        } else if(role === 'ADMIN' && query.branchId) {
+            where.branchId = Number(query.branchId);
+        }
         
         if (query.search) {
             where.user = {

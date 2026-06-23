@@ -105,7 +105,7 @@ export class MembershipsService {
     }
 
     // 3. Xác nhận đã đóng tiền & Kích hoạt gói tập + Cập nhật Redis Cache
-    public async confirmPayment(role: string, paymentId: number, transactionRef?: string, gatewayResponse?: any) {
+    public async confirmPayment(role: string, actorBranchId: number | null | undefined, paymentId: number, transactionRef?: string, gatewayResponse?: any) {
         if (role !== 'ADMIN' && role !== 'STAFF') {
             throw new Error("FORBIDDEN");
         }
@@ -123,7 +123,8 @@ export class MembershipsService {
             const { payment: updatedPayment, membership } = await this.repository.activateMembershipPayment(
                 paymentId,
                 transactionRef ?? `CASH_CONFIRMED_BY_${role}`,
-                gatewayResponse ?? { confirmedBy: role }
+                gatewayResponse ?? { confirmedBy: role },
+                role === 'STAFF' ? actorBranchId : null
             );
 
             // --- LƯU THÔNG TIN GÓI TẬP ACTIVE LÊN REDIS (Để điểm danh/check-in) ---

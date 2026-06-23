@@ -5,6 +5,7 @@ import { UserRole } from "@prisma/client";
 export interface AccessTokenPayload {
   userId: number;
   role: UserRole;
+  branchId?: number | null;
 }
 
 export interface RefreshTokenPayload {
@@ -53,6 +54,7 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
   return {
     userId: decoded.userId,
     role: decoded.role as UserRole,
+    branchId: decoded.branchId !== undefined ? decoded.branchId : null,
   };
 }
 
