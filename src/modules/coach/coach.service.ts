@@ -76,9 +76,10 @@ export class CoachService {
         }
 
         //3. tim kiem theo name
-        if (query.search) {
+        if (query.search || query.branchId) {
             where.user = {
-                name: { contains: query.search, mode: 'insensitive' }
+                ...(query.search && { name: { contains: query.search, mode: 'insensitive' } }),
+                ...(query.branchId && { branchId: Number(query.branchId) })
             };
         }
 
@@ -159,8 +160,8 @@ export class CoachService {
     }
 
     // Admin lấy danh sách toàn bộ PT để quản trị
-    public async getAllCoachesForAdmin(role: string, query: ListCoachAdminQueryDto) {
-        if (role !== 'ADMIN') throw new Error("FORBIDDEN");
+    public async getAllCoachesForAdmin(role: string, actorBranchId : number | null | undefined, query: ListCoachAdminQueryDto) {
+        if (role !== 'ADMIN' && role !== 'STAFF') throw new Error("FORBIDDEN");
 
         const page = Number(query.page ?? 1);
         const limit = Number(query.limit ?? 10);
@@ -172,9 +173,20 @@ export class CoachService {
             where.isAvailable = query.isAvailable === 'true';
         }
 
-        if (query.search) {
+        //PHAN QUYEN THEO CHI NHANH
+        let targetBranchId: number | null = null;
+        if(role === 'STAFF'){
+            //STAFF chi duoc xem Coach cua chi nhanh minh
+            if(!actorBranchId) throw new Error("STAFF_BRANCH_REQUIRED");
+            targetBranchId = actorBranchId;
+        }else if(role === 'ADMIN' && query.branchId) {
+            targetBranchId = Number(query.branchId);
+        }
+
+        if (query.search || targetBranchId) {
             where.user = {
-                name: { contains: query.search, mode: 'insensitive' }
+                ...(query.search && { name: { contains: query.search, mode: 'insensitive' } }),
+                ...(targetBranchId && { branchId: targetBranchId })
             };
         }
 

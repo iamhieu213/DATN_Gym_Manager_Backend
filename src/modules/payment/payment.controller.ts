@@ -63,13 +63,29 @@ export const payInvoice = async (req: AuthRequest, res: Response) => {
 export const confirmCashPayment = async (req: AuthRequest, res: Response) => {
     try {
         const role = req.user?.role;
+        const actorBranchId = req.user?.branchId;
+
         if (!role) throw new Error("FORBIDDEN");
 
         const paymentId = parseInt(req.params.paymentId as string, 10);
         if (isNaN(paymentId)) {
             return res.status(400).json({ success: false, message: "Mã hóa đơn không hợp lệ." });
         }
-        await service.confirmPayment(role, paymentId, `CASH_CONFIRMED_BY_${role}`, { confirmedBy: role });
+
+        const { branchId } = req.body;
+
+        const confirmDto = {
+            transactionRef: `CASH_CONFIRMED_BY_${role}`,
+            gatewayResponse: { confirmedBy: role },
+            ...(branchId ? { branchId: Number(branchId) } : {}) // Chỉ thêm thuộc tính branchId vào nếu nó có giá trị thực tế
+        };
+
+        await service.confirmPayment(
+            role, 
+            actorBranchId,  
+            paymentId, 
+            confirmDto
+        );
 
         res.status(200).json({ success: true, message: "Duyệt thanh toán tiền mặt thành công." });
     } catch (e: any) {
@@ -99,7 +115,7 @@ export const handleVnpayIpn = async (req: Request, res: Response) => {
         if (payment.status !== "PENDING") return res.status(200).json({ RspCode: "02", Message: "Order already confirmed" });
 
         if (responseCode === "00") {
-            await service.confirmPayment("SYSTEM", paymentId, transactionNo, vnp_Params);
+            await service.confirmPayment("SYSTEM", null, paymentId, { transactionRef: transactionNo, gatewayResponse: vnp_Params });
             return res.status(200).json({ RspCode: "00", Message: "Confirm success" });
         } else {
             await repository.updatePayment(paymentId, { status: "FAILED", gateway_response: vnp_Params });
@@ -125,7 +141,7 @@ export const handleVnpayReturn = async (req: Request, res: Response) => {
         const payment = await repository.findPaymentById(paymentId);
         if (responseCode === "00") {
             if (payment && payment.status === "PENDING") {
-                await service.confirmPayment("SYSTEM", paymentId, transactionNo, vnp_Params);
+                await service.confirmPayment("SYSTEM", null, paymentId, { transactionRef: transactionNo, gatewayResponse: vnp_Params });
             }
             return res.send(`<div style="text-align: center; margin-top: 50px; font-family: sans-serif;">
                 <h1 style="color: green;">🎉 THANH TOÁN THÀNH CÔNG!</h1>
@@ -166,7 +182,7 @@ export const adminGetPayments = async (req: AuthRequest, res: Response) => {
         if (!role) throw new Error("FORBIDDEN");
         // Nhận toàn bộ query params truyền lên từ URL và ép kiểu sang ListPaymentsQueryDto
         const query = req.query as unknown as ListPaymentsQueryDto;
-        const result = await service.adminGetPayments(role, query);
+        const result = await service.adminGetPayments(role, req.user?.branchId, query);
         res.status(200).json({ 
             success: true, 
             data: result.data,
@@ -192,7 +208,7 @@ export const getPaymentDetail = async (req: AuthRequest, res: Response) => {
         }
 
         // Gọi service xử lý phân quyền và lấy dữ liệu
-        const data = await service.findPaymentById(userId, role, paymentId);
+        const data = await service.findPaymentById(userId, role, req.user?.branchId, paymentId);
 
         res.status(200).json({ 
             success: true, 

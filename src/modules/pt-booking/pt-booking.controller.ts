@@ -190,7 +190,7 @@ export const getChangeRequests = async (req: AuthRequest, res: Response) => {
         if (!role) throw new Error("FORBIDDEN");
 
         const status = req.query.status as string | undefined;
-        const data = await service.getChangeRequests(role, status);
+        const data = await service.getChangeRequests(role, req.user?.branchId, status);
         res.status(200).json({ success: true, data });
     } catch (e: any) {
         const error = mapError(e.message);
@@ -219,7 +219,7 @@ export const adminGetAssignments = async (req: AuthRequest, res: Response) => {
         if (!role) throw new Error("FORBIDDEN");
 
         const status = req.query.status as string | undefined;
-        const data = await service.adminGetAssignments(role, status);
+        const data = await service.adminGetAssignments(role, req.user?.branchId, status);
         res.status(200).json({ success: true, data });
     } catch (e: any) {
         const error = mapError(e.message);

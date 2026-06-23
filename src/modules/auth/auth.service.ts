@@ -213,6 +213,7 @@ export class AuthService {
         const accessToken = signAccessToken({
             userId: user.id,
             role: user.role,
+            branchId: user.branchId,
         });
         const tokenId = crypto.randomUUID();
         const refreshToken = signRefreshToken({
@@ -246,7 +247,7 @@ export class AuthService {
         // Lấy thông tin role của User trực tiếp từ database
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
-            select: { role: true },
+            select: { role: true, branchId : true },
         });
         if (!user) {
             throw new Error("USER_NOT_FOUND");
@@ -254,6 +255,7 @@ export class AuthService {
         const accessToken = signAccessToken({
             userId,
             role: user.role,
+            branchId : user.branchId,
         });
         return { accessToken };
     }
@@ -386,8 +388,9 @@ export class AuthService {
     private async issuseAuthTokensForUser(user: {
         id: number;
         role: import('@prisma/client').UserRole;
+        branchId: number | null;
     }): Promise<{ accessToken: string, refreshToken: string }> {
-        const accessToken = signAccessToken({ userId: user.id, role: user.role });
+        const accessToken = signAccessToken({ userId: user.id, role: user.role, branchId: user.branchId });
         const tokenId = crypto.randomUUID();
         const refreshToken = signRefreshToken({ userId: user.id, tokenId });
         const refreshTokenHash = await bcrypt.hash(refreshToken, 10);

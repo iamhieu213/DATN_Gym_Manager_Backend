@@ -22,6 +22,7 @@ const mapErrorStatus = (code: string): number => {
             return 409;
         case "BAD_REQUEST":
         case "INVALID_ID":
+        case "BRANCH_REQUIRED_FOR_STAFF_COACH":
             return 400;
         default:
             return 500;
@@ -46,6 +47,8 @@ const mapErrorMessage = (code: string): string => {
             return "Yêu cầu không hợp lệ.";
         case "INVALID_ID":
             return "ID người dùng không hợp lệ.";
+        case "BRANCH_REQUIRED_FOR_STAFF_COACH":
+            return "Tài khoản Nhân viên (Staff) và Huấn luyện viên (Coach) bắt buộc phải gán vào một chi nhánh cụ thể.";
         default:
             return "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.";
     }
@@ -61,7 +64,7 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
             });
         }
 
-        const result = await userService.getAllUsers(req.user.role, req.query as ListUserQueryDto);
+        const result = await userService.getAllUsers(req.user.role, req.user.branchId,  req.query as ListUserQueryDto);
         res.status(200).json({
             success: true,
             message: "Lấy danh sách người dùng thành công.",
@@ -419,7 +422,7 @@ export const getUserStats = async (req: AuthRequest, res: Response) => {
                 error: "UNAUTHORIZED"
             });
         }
-        const result = await userService.getUserStats(req.user.role);
+        const result = await userService.getUserStats(req.user.role, req.user.branchId);
         res.status(200).json({
             success: true,
             message: "Lấy dữ liệu thống kê người dùng thành công.",

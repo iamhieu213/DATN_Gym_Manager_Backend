@@ -10,7 +10,8 @@ export class EquipmentService {
         if (role !== 'ADMIN') {
             throw new Error('FORBIDDEN');
         }
-        const { name, baseCode, quantity, purchaseDate, note } = dto;
+        const { name, baseCode, quantity, purchaseDate, note, branchId } = dto;
+        if (!branchId) throw new Error('BAD_REQUEST');
         if (quantity <= 0) {
             throw new Error('INVALID_QUANTITY');
         }
@@ -36,15 +37,26 @@ export class EquipmentService {
                 code: generatedCode,
                 status: 'OPERATIONAL' as EquipmentStatus,
                 purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
-                note: note || null
+                note: note || null,
+                branchId: branchId
             });
         }
         await this.repository.createMany(newEquipments);
         return newEquipments.length;
     }
 
-    public async getEquipmentSummary(query: { search?: string }) {
+    public async getEquipmentSummary(role: string, actorBranchId: number | null | undefined, query: { search?: string, branchId?: string }) {
         const where: any = {};
+
+        let targetBranchId: number | null = null;
+        if (role === 'ADMIN') {
+            targetBranchId = query.branchId ? Number(query.branchId) : null;
+        } else {
+            targetBranchId = query.branchId ? Number(query.branchId) : (actorBranchId ?? null);
+        }
+        if (targetBranchId) {
+            where.branchId = targetBranchId;
+        }
         if (query.search) {
             where.name = {
                 contains: query.search,
@@ -74,7 +86,7 @@ export class EquipmentService {
     }
 
     //Lay chi tiet cac may (khong cho USER xem thong tin nhay cam)
-    public async getEquipmentGroupDetails(role : string, name : string | undefined, query : ListQueryEquipmentDetailDto) {
+    public async getEquipmentGroupDetails(role: string, actorBranchId: number | null | undefined, name: string | undefined, query: ListQueryEquipmentDetailDto) {
         // name là optional để hỗ trợ hiển thị toàn bộ thiết bị sảnh gym
 
         const page = Number(query.page ?? 1);
@@ -92,6 +104,17 @@ export class EquipmentService {
                 contains: query.search,
                 mode: 'insensitive'
             };
+        }
+
+        let targetBranchId: number | null = null;
+        if (role === 'ADMIN') {
+            targetBranchId = query.branchId ? Number(query.branchId) : null;
+        } else {
+            targetBranchId = query.branchId ? Number(query.branchId) : (actorBranchId ?? null);
+        }
+
+        if (targetBranchId) {
+            where.branchId = targetBranchId;
         }
 
         //Truy van song song danh sach phan trang va dem tong so luong
@@ -115,7 +138,7 @@ export class EquipmentService {
     }
 
     //Cap nhat 1 thiet bi
-    public async updateEquipment(role: string, id: number, dto: UpdateEquipmentDto) {
+    public async updateEquipment(role: string, id: number, actorBranchId: number | null | undefined, dto: UpdateEquipmentDto) {
         if (role !== 'ADMIN' && role !== 'STAFF') {
             throw new Error('FORBIDDEN');
         }
@@ -123,6 +146,11 @@ export class EquipmentService {
         const existing = await this.repository.findById(id);
         if (!existing) {
             throw new Error('EQUIPMENT_NOT_FOUND');
+        }
+
+        //Chan staff sua thiet bi chi nhanh khac
+        if (role === 'STAFF' && existing.branchId !== actorBranchId) {
+            throw new Error('FORBIDDEN');
         }
 
         const updateData: any = {};
@@ -136,13 +164,19 @@ export class EquipmentService {
     }
 
     //Cap nhat hang loat thiet bi
-    public async bulkUpdateEquipment(role: string, dto: BulkUpdateEquipmentDto) {
+    public async bulkUpdateEquipment(role: string, actorBranchId: number | null | undefined, dto: BulkUpdateEquipmentDto) {
         if (role !== 'ADMIN' && role !== 'STAFF') {
             throw new Error('FORBIDDEN');
         }
 
         if (!dto.ids || dto.ids.length === 0) {
             throw new Error('BAD_REQUEST');
+        }
+
+        if (role === 'STAFF') {
+            const equipments = await this.repository.findAll({ id: { in: dto.ids } });
+            const hasInvalid = equipments.some(eq => eq.branchId !== actorBranchId);
+            if (hasInvalid) throw new Error('FORBIDDEN');
         }
 
         const updateData: any = {};
@@ -156,13 +190,17 @@ export class EquipmentService {
     }
 
     // 6. Xóa 1 thiết bị cụ thể (ADMIN, STAFF)
-    public async deleteEquipment(role: string, id: number) {
+    public async deleteEquipment(role: string, actorBranchId: number | null | undefined, id: number) {
         if (role !== 'ADMIN' && role !== 'STAFF') {
             throw new Error('FORBIDDEN');
         }
         const equipment = await this.repository.findById(id);
         if (!equipment) {
             throw new Error('EQUIPMENT_NOT_FOUND');
+        }
+        // Chặn STAFF xóa thiết bị chi nhánh khác
+        if (role === 'STAFF' && equipment.branchId !== actorBranchId) {
+            throw new Error('FORBIDDEN');
         }
         await this.repository.delete(id);
     }
@@ -180,9 +218,17 @@ export class EquipmentService {
     }
 
     // 8. Lấy tổng số lượng thiết bị theo trạng thái
-    public async getEquipmentStats(role: string) {
+    public async getEquipmentStats(role: string, actorBranchId: number | null | undefined, queryBranchId?: string) {
         if (role !== 'ADMIN' && role !== 'STAFF') {
             throw new Error('FORBIDDEN');
+        }
+
+        let targetBranchId: number | undefined = undefined;
+        if (role === 'STAFF') {
+            if (!actorBranchId) throw new Error('STAFF_BRANCH_REQUIRED');
+            targetBranchId = actorBranchId;
+        } else if (role === 'ADMIN' && queryBranchId) {
+            targetBranchId = Number(queryBranchId);
         }
         const rawStats = await this.repository.getStatsSummary();
 
@@ -211,85 +257,99 @@ export class EquipmentService {
 
     // Thêm vào trong class EquipmentService:
 
-// 1. Lấy danh sách nhiệm vụ bảo trì sắp tới
-public async getMaintenanceTasks(month?: number, year?: number) {
-    const where: any = {};
-    
-    // Nếu có lọc theo tháng/năm
-    if (month && year) {
-        const startOfMonth = new Date(year, month - 1, 1);
-        const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
-        where.scheduledAt = {
-            gte: startOfMonth,
-            lte: endOfMonth
-        };
-    } else {
-        // Mặc định lấy các lịch chưa hoàn thành (PENDING, IN_PROGRESS)
-        where.status = { in: ['PENDING', 'IN_PROGRESS'] };
+    // 1. Lấy danh sách nhiệm vụ bảo trì sắp tới
+    public async getMaintenanceTasks(role: string,
+        actorBranchId: number | null | undefined,
+        month?: number, year?: number,
+        queryBranchId?: string) {
+        const where: any = {};
+
+        let targetBranchId: number | null = null;
+        if (role === 'STAFF') {
+            targetBranchId = actorBranchId ?? null;
+        } else if (role === 'ADMIN' && queryBranchId) {
+            targetBranchId = Number(queryBranchId);
+        }
+
+        if (targetBranchId) {
+            where.equipment = { branchId: targetBranchId };
+        }
+
+        // Nếu có lọc theo tháng/năm
+        if (month && year) {
+            const startOfMonth = new Date(year, month - 1, 1);
+            const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+            where.scheduledAt = {
+                gte: startOfMonth,
+                lte: endOfMonth
+            };
+        } else {
+            // Mặc định lấy các lịch chưa hoàn thành (PENDING, IN_PROGRESS)
+            where.status = { in: ['PENDING', 'IN_PROGRESS'] };
+        }
+
+        return this.repository.findMaintenanceTasks(where);
     }
 
-    return this.repository.findMaintenanceTasks(where);
-}
+    // 2. Lên lịch bảo trì mới (hỗ trợ hàng loạt) & Tự động đổi trạng thái máy sang UNDER_MAINTENANCE
+    public async createMaintenanceTask(role: string, dto: CreateMaintenanceTaskDto) {
+        if (role !== 'ADMIN' && role !== 'STAFF') {
+            throw new Error('FORBIDDEN');
+        }
 
-// 2. Lên lịch bảo trì mới (hỗ trợ hàng loạt) & Tự động đổi trạng thái máy sang UNDER_MAINTENANCE
-public async createMaintenanceTask(role: string, dto: CreateMaintenanceTaskDto) {
-    if (role !== 'ADMIN' && role !== 'STAFF') {
-        throw new Error('FORBIDDEN');
+        const { equipmentIds, title, description, scheduledAt, priority, assignedTeam } = dto;
+        if (!equipmentIds || equipmentIds.length === 0) {
+            throw new Error('BAD_REQUEST');
+        }
+
+        // Tạo lịch bảo trì cho toàn bộ danh sách máy song song
+        const tasks = await Promise.all(
+            equipmentIds.map(id =>
+                this.repository.createMaintenanceTask({
+                    equipmentId: id,
+                    title,
+                    description: description || null,
+                    scheduledAt: new Date(scheduledAt),
+                    priority,
+                    assignedTeam: assignedTeam || null
+                })
+            )
+        );
+
+        // Tự động chuyển trạng thái của tất cả các máy này sang ĐANG BẢO TRÌ
+        await this.repository.updateMany(equipmentIds, { status: 'UNDER_MAINTENANCE' });
+
+        return tasks;
     }
 
-    const { equipmentIds, title, description, scheduledAt, priority, assignedTeam } = dto;
-    if (!equipmentIds || equipmentIds.length === 0) {
-        throw new Error('BAD_REQUEST');
+    // 3. Hoàn thành bảo trì & Tự động chuyển máy về OPERATIONAL
+    public async updateMaintenanceTask(role: string, id: number, dto: UpdateMaintenanceTaskDto) {
+        if (role !== 'ADMIN' && role !== 'STAFF') {
+            throw new Error('FORBIDDEN');
+        }
+
+        const task = await this.repository.findMaintenanceTaskById(id);
+        if (!task) throw new Error('MAINTENANCE_TASK_NOT_FOUND');
+
+        const updateData: any = {};
+        if (dto.status) updateData.status = dto.status;
+        if (dto.cost !== undefined) updateData.cost = dto.cost;
+        if (dto.notes !== undefined) updateData.notes = dto.notes;
+
+        if (dto.status === 'COMPLETED') {
+            updateData.completedAt = new Date();
+        }
+
+        const updatedTask = await this.repository.updateMaintenanceTask(id, updateData);
+
+        // Nếu sửa xong (COMPLETED), chuyển máy về Hoạt động tốt & cập nhật ngày sửa cuối
+        if (dto.status === 'COMPLETED') {
+            await this.repository.update(task.equipmentId, {
+                status: 'OPERATIONAL',
+                lastMaintenanceDate: new Date()
+            });
+        }
+
+        return updatedTask;
     }
-
-    // Tạo lịch bảo trì cho toàn bộ danh sách máy song song
-    const tasks = await Promise.all(
-        equipmentIds.map(id => 
-            this.repository.createMaintenanceTask({
-                equipmentId: id,
-                title,
-                description: description || null,
-                scheduledAt: new Date(scheduledAt),
-                priority,
-                assignedTeam: assignedTeam || null
-            })
-        )
-    );
-
-    // Tự động chuyển trạng thái của tất cả các máy này sang ĐANG BẢO TRÌ
-    await this.repository.updateMany(equipmentIds, { status: 'UNDER_MAINTENANCE' });
-
-    return tasks;
-}
-
-// 3. Hoàn thành bảo trì & Tự động chuyển máy về OPERATIONAL
-public async updateMaintenanceTask(role: string, id: number, dto: UpdateMaintenanceTaskDto) {
-    if (role !== 'ADMIN' && role !== 'STAFF') {
-        throw new Error('FORBIDDEN');
-    }
-
-    const task = await this.repository.findMaintenanceTaskById(id);
-    if (!task) throw new Error('MAINTENANCE_TASK_NOT_FOUND');
-
-    const updateData: any = {};
-    if (dto.status) updateData.status = dto.status;
-    if (dto.cost !== undefined) updateData.cost = dto.cost;
-    if (dto.notes !== undefined) updateData.notes = dto.notes;
-
-    if (dto.status === 'COMPLETED') {
-        updateData.completedAt = new Date();
-    }
-
-    const updatedTask = await this.repository.updateMaintenanceTask(id, updateData);
-
-    // Nếu sửa xong (COMPLETED), chuyển máy về Hoạt động tốt & cập nhật ngày sửa cuối
-    if (dto.status === 'COMPLETED') {
-        await this.repository.update(task.equipmentId, {
-            status: 'OPERATIONAL',
-            lastMaintenanceDate: new Date()
-        });
-    }
-
-    return updatedTask;
-}
 }

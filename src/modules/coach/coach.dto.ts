@@ -21,6 +21,7 @@ export interface ListCoachQueryDto {
     limit? : string;
     slots? : string; // Chuỗi JSON chứa mảng các khung giờ: [{"dayOfWeek":1,"startTime":"18:00","endTime":"20:00"}]
     ptPackageId? : string;
+    branchId? : string; //Loc PT theo chi nhanh
 }
 
 export interface ListCoachAdminQueryDto {
@@ -28,4 +29,5 @@ export interface ListCoachAdminQueryDto {
     isAvailable?: string; // "true" hoặc "false"
     page?: string;
     limit?: string;
+    branchId? : string;
 }
