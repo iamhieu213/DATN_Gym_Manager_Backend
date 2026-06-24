@@ -364,9 +364,9 @@ export class PtBookingRepository {
     }
 
     // Lay tat ca yeu cau doi PT cua he thong
-    public async findChangeRequests(where : any) {
+    public async findChangeRequests(where : any = {}) {
         return this.prisma.coachChangeRequest.findMany({
-            where: status ? { status } : {},
+            where,
             include: {
                 user: {
                     select: {

@@ -2,9 +2,11 @@
 
 Base path: `/users`
 
-Tất cả API trong module này đều cần Bearer token.
+Tất cả API trong module này đều yêu cầu đăng nhập bằng Bearer token.
 
-## Kiểu dữ liệu user trả về
+---
+
+## Kiểu dữ liệu User trả về
 
 ```json
 {
@@ -20,204 +22,185 @@ Tất cả API trong module này đều cần Bearer token.
   "citizenId": null,
   "address": null,
   "emergencyContact": null,
+  "branchId": 1,
   "createdAt": "2026-06-01T00:00:00.000Z",
   "updatedAt": "2026-06-01T00:00:00.000Z"
 }
 ```
 
-Enum:
+### Các Enum liên quan
+- **`role`:** `ADMIN` (Quản trị hệ thống), `COACH` (Huấn luyện viên/PT), `STAFF` (Nhân viên/Lễ tân), `USER` (Hội viên).
+- **`status`:** `ACTIVE`, `INACTIVE`, `SUSPENDED` (Tạm ngưng), `BANNED` (Bị cấm), `DELETED` (Đã xóa mềm).
+- **`gender`:** `MALE`, `FEMALE`, `OTHER`.
 
-- `role`: `ADMIN`, `COACH`, `STAFF`, `USER`
-- `status`: `ACTIVE`, `INACTIVE`, `SUSPENDED`, `BANNED`, `DELETED`
-- `gender`: `MALE`, `FEMALE`, `OTHER`
+---
 
 ## GET `/users/me`
 
-Lấy profile user đang đăng nhập.
+Lấy thông tin tài khoản cá nhân của người dùng đang đăng nhập.
 
-Trả về `200`: `data` là user object.
+- **Quyền hạn:** Mọi tài khoản đã đăng nhập.
+- **Thành công `200`:** `data` là đối tượng User.
+
+---
 
 ## PATCH `/users/me`
 
-Cập nhật profile user đang đăng nhập.
+Cập nhật thông tin cá nhân của người dùng đang đăng nhập.
 
-Body:
+- **Quyền hạn:** Mọi tài khoản đã đăng nhập.
+- **Request Body:** Các trường thông tin cơ bản:
+  ```json
+  {
+    "name": "Nguyen Van A",
+    "phone": "0900000000",
+    "dateOfBirth": "2000-01-01",
+    "gender": "MALE",
+    "citizenId": "001200000000",
+    "address": "Ha Noi",
+    "emergencyContact": "0911111111"
+  }
+  ```
+- **Thành công `200`:** Trả về đối tượng User sau khi cập nhật.
+- **Lỗi thường gặp:**
+  - `PHONE_ALREADY_EXISTS` (409): Số điện thoại trùng với tài khoản khác.
+  - `CITIZEN_ID_ALREADY_EXISTS` (409): CCCD/CMND trùng với tài khoản khác.
 
-```json
-{
-  "name": "Nguyen Van A",
-  "phone": "0900000000",
-  "dateOfBirth": "2000-01-01",
-  "gender": "MALE",
-  "citizenId": "001200000000",
-  "address": "Ha Noi",
-  "emergencyContact": "0911111111"
-}
-```
-
-Trả về `200`: `data` là user sau cập nhật.
+---
 
 ## PATCH `/users/me/avatar`
 
-Upload avatar.
+Cập nhật ảnh đại diện của người dùng (tải lên thông qua Cloudinary).
 
-Content-Type: `multipart/form-data`
+- **Quyền hạn:** Mọi tài khoản đã đăng nhập.
+- **Content-Type:** `multipart/form-data`
+- **Field file:** `avatar` (tên trường chứa file ảnh tải lên).
+- **Thành công `200`:** Trả về đối tượng User với `avatarUrl` mới.
 
-Field file:
-
-```text
-avatar
-```
-
-Trả về `200`: `data` là user sau khi cập nhật `avatarUrl`.
+---
 
 ## GET `/users`
 
-Lấy danh sách user.
+Ban quản trị xem danh sách toàn bộ người dùng trong hệ thống (có hỗ trợ tìm kiếm, lọc và phân trang).
 
-Quyền: `ADMIN`, `STAFF`.
+- **Quyền hạn:** `ADMIN`, `STAFF`.
+  - **Phân vùng dữ liệu:**
+    - Tài khoản `STAFF` chỉ có thể xem danh sách người dùng thuộc **chi nhánh của STAFF đó**. Nếu STAFF chưa được gán chi nhánh trong hệ thống, trả lỗi `400 STAFF_BRANCH_REQUIRED`.
+    - Tài khoản `ADMIN` xem được tất cả người dùng và lọc theo chi nhánh bất kỳ.
+- **Query Parameters:**
+  - `page` (optional): Trang hiện tại, mặc định `1`.
+  - `limit` (optional): Số bản ghi/trang, mặc định `10`.
+  - `search` (optional): Tìm kiếm theo tên (`name`), email, số điện thoại (`phone`).
+  - `role` (optional): Lọc theo vai trò (`ADMIN`, `STAFF`, `COACH`, `USER`).
+  - `status` (optional): Lọc theo trạng thái.
+  - `branchId` (optional): Lọc theo ID chi nhánh (chỉ ADMIN).
 
-Query:
+- **Thành công `200`:** Trả về mảng danh sách người dùng và meta phân trang.
 
-| Tên | Mô tả |
-| --- | --- |
-| `page` | Trang, mặc định `1` |
-| `limit` | Số bản ghi/trang, mặc định `10`, tối đa `100` |
-| `search` | Tìm theo tên/email/phone |
-| `role` | Lọc theo role |
-| `status` | Lọc theo status |
-
-Trả về `200`: `data` là mảng user, `meta` là thông tin phân trang.
+---
 
 ## POST `/users`
 
-Tạo user mới.
+Ban quản trị tạo trực tiếp tài khoản mới (ví dụ tạo tài khoản cho nhân viên mới, huấn luyện viên mới).
 
-Quyền: `ADMIN`, `STAFF`. `STAFF` không được tạo `ADMIN`.
+- **Quyền hạn:** `ADMIN`, `STAFF`.
+  - **Ràng buộc an toàn & chi nhánh:**
+    - Nếu tài khoản được tạo có role là **`STAFF`** hoặc **`COACH`**: Bắt buộc phải truyền `branchId` trong body, nếu không trả lỗi `400 BRANCH_REQUIRED_FOR_STAFF_COACH`.
+    - STAFF không thể tạo tài khoản có role `ADMIN` (trả lỗi `403 FORBIDDEN`).
+- **Request Body:**
+  ```json
+  {
+    "email": "staff@example.com",
+    "password": "GymManager@123",
+    "name": "Nguyen Van B",
+    "phone": "0912345678",
+    "role": "STAFF",
+    "branchId": 1
+  }
+  ```
+  - **Lưu ý:** Nếu không truyền mật khẩu `password`, hệ thống tự đặt mật khẩu mặc định là `GymManager@123`.
+- **Thành công `201`:** Trả về tài khoản User mới được tạo.
 
-Body:
-
-```json
-{
-  "email": "coach@example.com",
-  "password": "GymManager@123",
-  "name": "Coach A",
-  "phone": "0900000001",
-  "dateOfBirth": "1995-01-01",
-  "role": "COACH",
-  "status": "ACTIVE",
-  "avatarUrl": null,
-  "gender": "MALE",
-  "citizenId": "001199500000",
-  "address": "Ha Noi",
-  "emergencyContact": "0911111111"
-}
-```
-
-Trả về `201`: `data` là user mới. Nếu role là `COACH`, service tự tạo `CoachProfile`.
+---
 
 ## GET `/users/stats`
 
-Thống kê user dashboard.
+Lấy thống kê số lượng tài khoản theo từng nhóm vai trò và trạng thái (phục vụ biểu đồ quản trị).
 
-Quyền: `ADMIN`, `STAFF`.
-
-Trả về `200`:
-
-```json
-{
-  "success": true,
-  "message": "Lấy dữ liệu thống kê người dùng thành công.",
-  "data": {
-    "totalUsers": 100,
-    "byRole": {
-      "ADMIN": 1,
-      "COACH": 5,
-      "STAFF": 3,
-      "USER": 91
-    },
-    "byStatus": {
-      "ACTIVE": 90,
-      "INACTIVE": 5,
-      "SUSPENDED": 3,
-      "BANNED": 2
-    },
-    "newRegistrations": {
-      "today": 2,
-      "thisMonth": 20
+- **Quyền hạn:** `ADMIN`, `STAFF`. (STAFF chỉ xem thống kê của chi nhánh mình).
+- **Thành công `200`:**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "totalUsers": 100,
+      "byRole": { "ADMIN": 1, "COACH": 5, "STAFF": 3, "USER": 91 },
+      "byStatus": { "ACTIVE": 90, "INACTIVE": 5, "SUSPENDED": 3, "BANNED": 2 },
+      "newRegistrations": { "today": 2, "thisMonth": 20 }
     }
   }
-}
-```
+  ```
+
+---
 
 ## GET `/users/:id`
 
-Lấy chi tiết một user.
+Xem chi tiết thông tin một người dùng bất kỳ.
 
-Quyền: `ADMIN`, `STAFF`.
+- **Quyền hạn:** `ADMIN`, `STAFF`. (STAFF chỉ xem được người dùng thuộc chi nhánh của mình).
+- **Thành công `200`:** Trả về thông tin User.
 
-Trả về `200`: `data` là user object.
+---
 
 ## PATCH `/users/:id`
 
-Cập nhật user bất kỳ.
+Cập nhật thông tin của một người dùng bất kỳ.
 
-Quyền: `ADMIN`, `STAFF`. `STAFF` không được sửa/nâng quyền tài khoản `ADMIN`.
+- **Quyền hạn:** `ADMIN`, `STAFF`.
+  - **Ràng buộc bảo mật của STAFF:**
+    - STAFF không thể chỉnh sửa thông tin tài khoản của `ADMIN` (trả lỗi `403 FORBIDDEN`).
+    - STAFF không thể thay đổi trường `branchId` của người khác (trả lỗi `403 FORBIDDEN`).
+    - STAFF không thể thay đổi/nâng cấp vai trò (`role`) của bất kỳ tài khoản nào lên thành `ADMIN` (trả lỗi `403 FORBIDDEN`).
+    - Nếu đổi vai trò của người khác thành `STAFF` hoặc `COACH`, vẫn bắt buộc phải có `branchId`.
+- **Request Body:** Gửi các trường thông tin cần sửa.
+- **Thành công `200`:** Trả về đối tượng User sau cập nhật.
 
-Body:
-
-```json
-{
-  "name": "New Name",
-  "phone": "0900000002",
-  "dateOfBirth": "1995-01-01",
-  "role": "USER",
-  "gender": "FEMALE",
-  "citizenId": "001199500001",
-  "address": "Ho Chi Minh",
-  "emergencyContact": "0922222222"
-}
-```
-
-Trả về `200`: `data` là user sau cập nhật.
+---
 
 ## PATCH `/users/:id/status`
 
-Cập nhật trạng thái tài khoản.
+Thay đổi trạng thái hoạt động của một tài khoản.
 
-Quyền: `ADMIN`, `STAFF`.
+- **Quyền hạn:** `ADMIN`, `STAFF`. (STAFF không được thay đổi trạng thái của tài khoản `ADMIN`).
+- **Request Body:**
+  ```json
+  {
+    "status": "SUSPENDED"
+  }
+  ```
+- **Thành công `200`:** Trả về đối tượng User sau cập nhật.
 
-Body:
-
-```json
-{
-  "status": "SUSPENDED"
-}
-```
-
-Trả về `200`: `data` là user sau cập nhật.
+---
 
 ## DELETE `/users/:id`
 
-Soft delete user, thực chất cập nhật `status = DELETED`.
+Xóa mềm tài khoản người dùng khỏi hệ thống (thiết lập trạng thái `status = DELETED`).
 
-Quyền: `ADMIN`, `STAFF`.
+- **Quyền hạn:** `ADMIN`, `STAFF`. (STAFF không được xóa tài khoản của `ADMIN`).
+- **Thành công `200`:** Trả về đối tượng User sau khi cập nhật status sang DELETED.
 
-Trả về `200`: `data` là user sau cập nhật.
+---
 
 ## POST `/users/:id/reset-password`
 
-Reset mật khẩu user.
+Đặt lại mật khẩu cho một tài khoản người dùng về mặc định hoặc một mật khẩu mới.
 
-Quyền: `ADMIN`, `STAFF`. Nếu không truyền `newPassword`, service dùng mặc định `GymManager@123`.
-
-Body:
-
-```json
-{
-  "newPassword": "NewPassword@123"
-}
-```
-
-Trả về `200`: `data` là user sau reset.
-
+- **Quyền hạn:** `ADMIN`, `STAFF`. (STAFF không được reset mật khẩu cho tài khoản `ADMIN`).
+- **Request Body:**
+  ```json
+  {
+    "newPassword": "NewPassword@123"
+  }
+  ```
+  - **Lưu ý:** Nếu không truyền mật khẩu mới `newPassword`, hệ thống tự đặt mật khẩu mặc định là `GymManager@123`.
+- **Thành công `200`:** Trả về thông tin User.
