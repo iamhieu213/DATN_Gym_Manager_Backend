@@ -2,21 +2,21 @@
 
 Base path: `/pt-package`
 
-## Cảnh báo theo code hiện tại
+Tất cả API trong module này đều yêu cầu đăng nhập bằng Bearer token.
 
-Trong `src/modules/pt-package/pt-package.route.ts`, dòng `router.use(authMiddleware)` đang bị comment. Tuy nhiên controller lại đọc `req.user?.role`. Vì vậy với code hiện tại, các endpoint trong module này sẽ không có `req.user` và nhiều API sẽ trả `403 FORBIDDEN` ngay cả khi client gửi Bearer token. Để các API hoạt động đúng như service thiết kế, cần bật middleware auth ở route.
-
-Tài liệu dưới đây mô tả hành vi theo controller/service khi có `req.user`.
+---
 
 ## Enum `TrainingGoal`
 
-- `WEIGHT_LOSS`
-- `MUSCLE_GAIN`
-- `COMPETITION_PREP`
-- `REHABILITATION`
-- `GENERAL_FITNESS`
+- `WEIGHT_LOSS`: Giảm cân / Giảm mỡ
+- `MUSCLE_GAIN`: Tăng cơ / Thể hình
+- `COMPETITION_PREP`: Huấn luyện thi đấu chuyên nghiệp
+- `REHABILITATION`: Phục hồi chấn thương / Trị liệu
+- `GENERAL_FITNESS`: Duy trì vóc dáng / Sức khỏe tổng quát
 
-## Kiểu dữ liệu package
+---
+
+## Kiểu dữ liệu Package (Gói tập PT mẫu)
 
 ```json
 {
@@ -32,88 +32,142 @@ Tài liệu dưới đây mô tả hành vi theo controller/service khi có `req
 }
 ```
 
+---
+
 ## GET `/pt-package`
 
-Lấy danh sách gói PT mẫu.
+Lấy danh sách các gói Combo PT mẫu có trong hệ thống.
 
-Auth theo service: cần role trong token. `ADMIN` có thể xem cả active/inactive; role khác chỉ xem active.
+- **Quyền hạn:** Mọi tài khoản đã đăng nhập.
+  - **Bảo mật trạng thái:** Nếu là hội viên (`USER`) hoặc PT (`COACH`), hệ thống sẽ **bắt buộc** chỉ lấy ra các gói đang hoạt động (`isActive = true`). `ADMIN` có thể xem toàn bộ hoặc lọc theo ý muốn.
+- **Query Parameters:**
+  - `goal` (optional): Lọc theo mục tiêu tập luyện (`TrainingGoal`).
+  - `isActive` (optional): Lọc trạng thái hoạt động (`"true"` hoặc `"false"` - chỉ ADMIN được dùng).
 
-Query:
+- **Thành công `200`:** `data` là mảng danh sách các gói PT.
 
-| Tên | Mô tả |
-| --- | --- |
-| `goal` | Lọc theo `TrainingGoal` |
-| `isActive` | `true` hoặc `false`, chỉ áp dụng cho `ADMIN` |
-
-Trả về `200`: `data` là mảng package.
+---
 
 ## GET `/pt-package/:id/coaches`
 
-Lấy danh sách PT dạy một gói cụ thể, kèm giá và có thể lọc lịch rảnh.
+Xem danh sách các Huấn luyện viên (PT) nhận dạy gói tập này, kèm theo giá bán riêng của từng PT và lịch rảnh.
 
-Auth theo service: cần role trong token. Nếu package inactive và role không phải `ADMIN`, trả `PACKAGE_NOT_FOUND`.
+- **Quyền hạn:** Mọi tài khoản đã đăng nhập.
+- **Bảo mật dữ liệu:** Nếu gói tập này đang bị khóa (`isActive = false`) và người gọi không phải `ADMIN`, hệ thống sẽ trả lỗi `404 PACKAGE_NOT_FOUND` để che giấu dữ liệu.
+- **Query Parameters (Bộ lọc lịch làm việc rảnh):**
+  - `dayOfWeek` (optional): Ngày trong tuần (0: Chủ Nhật, 1: Thứ 2...).
+  - `startTime` (optional): Ví dụ `18:00`.
+  - `endTime` (optional): Ví dụ `20:00`.
+  - `slots` (optional): Lọc danh sách khung giờ dạng JSON.
+- **Thành công `200`:** Trả về danh sách PT kèm giá của gói tập.
 
-Query:
-
-| Tên | Mô tả |
-| --- | --- |
-| `dayOfWeek` | Ngày trong tuần |
-| `startTime` | Ví dụ `18:00` |
-| `endTime` | Ví dụ `20:00` |
-| `slots` | JSON string mảng slot |
-
-Trả về `200`: `data` là danh sách PT và bảng giá tương ứng của gói.
+---
 
 ## POST `/pt-package`
 
-Admin tạo gói PT mẫu.
+Tạo mới một gói Combo PT mẫu trong hệ thống.
 
-Auth theo service: role `ADMIN`.
+- **Quyền hạn:** Chỉ `ADMIN`.
+- **Request Body:**
+  ```json
+  {
+    "code": "PT_20",
+    "name": "Combo 20 buổi",
+    "numberOfSessions": 20,
+    "durationDays": 60,
+    "goal": "MUSCLE_GAIN",
+    "isActive": true
+  }
+  ```
+- **Thành công `201`:** Trả về đối tượng Package vừa được tạo.
+- **Lỗi thường gặp:**
+  - `MISSING_REQUIRED_FIELDS` (400)
+  - `PACKAGE_CODE_ALREADY_EXISTS` (400)
+  - `FORBIDDEN` (403)
 
-Body:
+---
 
-```json
-{
-  "code": "PT_20",
-  "name": "Combo 20 buổi",
-  "numberOfSessions": 20,
-  "durationDays": 60,
-  "goal": "MUSCLE_GAIN",
-  "isActive": true
-}
-```
+## PUT `/pt-package/:id`
 
-Trả về `201`: `data` là package mới.
+Cập nhật thông tin gói Combo PT mẫu.
 
-Lỗi thường gặp: `MISSING_REQUIRED_FIELDS`, `PACKAGE_CODE_ALREADY_EXISTS`, `FORBIDDEN`.
+- **Quyền hạn:** Chỉ `ADMIN`.
+- **Request Body:** Gửi các trường thông tin cần cập nhật (tất cả là optional).
+- **Thành công `200`:** Trả về đối tượng Package sau khi cập nhật.
+
+---
 
 ## POST `/pt-package/set-price`
 
-Admin thiết lập giá riêng của PT cho một gói.
+Admin thiết lập giá bán riêng cho từng Huấn luyện viên (PT) đối với một gói tập cụ thể.
 
-Auth theo service: role `ADMIN`.
+- **Quyền hạn:** Chỉ `ADMIN`.
+- **Request Body:**
+  ```json
+  {
+    "coachId": 1,
+    "ptPackageId": 1,
+    "price": 3000000
+  }
+  ```
+- **Thành công `200`:** Trả về bản ghi giá liên kết.
 
-Body:
+---
 
-```json
-{
-  "coachId": 1,
-  "ptPackageId": 1,
-  "price": 3000000
-}
-```
+## PATCH `/pt-package/:id/activate`
 
-Trả về `200`: `data` là bản ghi `coach_pt_packages`.
+Mở hoạt động gói Combo PT mẫu toàn hệ thống.
 
-## Controller có nhưng route chưa khai báo
+- **Quyền hạn:** Chỉ `ADMIN`.
+- **Thành công `200`:**
+  ```json
+  {
+    "success": true,
+    "message": "Mở hoạt động gói PT thành công."
+  }
+  ```
 
-Các handler sau tồn tại trong controller/service nhưng chưa được gắn vào route hiện tại:
+---
 
-| Handler | Dự kiến chức năng |
-| --- | --- |
-| `updatePackage` | Cập nhật gói PT mẫu |
-| `activatePackage` | Mở hoạt động package |
-| `deactivatePackage` | Khóa hoạt động package |
-| `activateCoachPackage` | Cho phép PT dạy package |
-| `deactivateCoachPackage` | Khóa quyền dạy package của PT |
+## PATCH `/pt-package/:id/deactivate`
 
+Khóa hoạt động gói Combo PT mẫu toàn hệ thống.
+
+- **Quyền hạn:** Chỉ `ADMIN`.
+- **Thành công `200`:**
+  ```json
+  {
+    "success": true,
+    "message": "Khóa hoạt động gói PT thành công."
+  }
+  ```
+
+---
+
+## PATCH `/pt-package/:id/coach/:coachId/activate`
+
+Kích hoạt lại quyền dạy gói Combo PT cụ thể cho một Huấn luyện viên (PT).
+
+- **Quyền hạn:** Chỉ `ADMIN`.
+- **Thành công `200`:**
+  ```json
+  {
+    "success": true,
+    "message": "Kích hoạt quyền dạy gói tập cho PT thành công."
+  }
+  ```
+
+---
+
+## PATCH `/pt-package/:id/coach/:coachId/deactivate`
+
+Khóa/ngừng quyền dạy gói Combo PT cụ thể của một Huấn luyện viên (PT).
+
+- **Quyền hạn:** Chỉ `ADMIN`.
+- **Thành công `200`:**
+  ```json
+  {
+    "success": true,
+    "message": "Khóa quyền dạy gói tập của PT thành công."
+  }
+  ```

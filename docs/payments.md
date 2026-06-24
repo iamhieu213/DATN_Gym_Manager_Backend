@@ -2,20 +2,18 @@
 
 Base path: `/payments`
 
-Các callback VNPAY không cần auth. Các API còn lại cần Bearer token.
+Các callback webhook của VNPAY không cần đăng nhập. Các API còn lại đều yêu cầu Bearer token.
 
-## Cảnh báo theo route hiện tại
-
-Trong `src/modules/payment/payment.route.ts`, route `GET /:paymentId` đang được khai báo trước `GET /list`. Với Express, request `GET /payments/list` sẽ bị match vào `/:paymentId` trước, làm `paymentId = "list"` và trả lỗi mã hóa đơn không hợp lệ.
-
-Để `GET /payments/list` hoạt động đúng, nên đặt `router.get('/list', adminGetPayments)` trước `router.get('/:paymentId', getPaymentDetail)`.
+---
 
 ## Enum liên quan
 
 - `PaymentMethod`: `CASH`, `VNPAY`, `MOMO`, `BANK_TRANSFER`
 - `PaymentStatus`: `PENDING`, `PAID`, `FAILED`, `REFUNDED`
 
-## Kiểu dữ liệu payment
+---
+
+## Kiểu dữ liệu Payment
 
 ```json
 {
@@ -30,238 +28,112 @@ Trong `src/modules/payment/payment.route.ts`, route `GET /:paymentId` đang đư
   "transaction_ref": null,
   "gateway_response": null,
   "paid_at": null,
+  "branchId": 1,
   "created_at": "2026-06-01T00:00:00.000Z"
 }
 ```
 
+---
+
 ## GET `/payments/vnpay-ipn`
 
-Webhook/IPN từ VNPAY.
+Webhook nhận thông tin phản hồi từ VNPAY để cập nhật trạng thái tự động.
 
-Auth: không cần.
+- **Quyền hạn:** Không yêu cầu đăng nhập.
+- **Query Parameters:** Các tham số do VNPAY gửi sang (`vnp_TxnRef`, `vnp_ResponseCode`, `vnp_Amount`, `vnp_SecureHash`, ...).
+- **Thành công `200`:** Trả về đối tượng JSON theo đặc tả kết quả của VNPAY (Ví dụ: `{"RspCode": "00", "Message": "Confirm success"}`).
 
-Query: các tham số VNPAY như `vnp_TxnRef`, `vnp_Amount`, `vnp_ResponseCode`, `vnp_TransactionNo`, `vnp_SecureHash`, ...
-
-Trả về `200` theo format VNPAY:
-
-```json
-{
-  "RspCode": "00",
-  "Message": "Confirm success"
-}
-```
-
-Các mã khác:
-
-| RspCode | Ý nghĩa |
-| --- | --- |
-| `97` | Sai chữ ký |
-| `01` | Không tìm thấy order/payment |
-| `04` | Sai số tiền |
-| `02` | Order đã được xác nhận trước đó |
-| `99` | Lỗi hệ thống |
-
-Nếu `vnp_ResponseCode = "00"`, service xác nhận payment. Nếu không, payment được cập nhật `FAILED`.
+---
 
 ## GET `/payments/vnpay-return`
 
-Return URL sau thanh toán VNPAY.
+Trang callback UI hiển thị kết quả giao dịch thanh toán cho khách hàng sau khi thanh toán qua cổng VNPAY.
 
-Auth: không cần.
+- **Quyền hạn:** Không yêu cầu đăng nhập.
+- **Thành công `200`:** Trả về một giao diện HTML thông báo "THANH TOÁN THÀNH CÔNG!" hoặc "THANH TOÁN THẤT BẠI".
 
-Query: các tham số VNPAY tương tự IPN.
-
-Trả về: HTML thông báo thành công/thất bại. Nếu thanh toán thành công và payment còn `PENDING`, service xác nhận payment.
+---
 
 ## POST `/payments/:paymentId/pay`
 
-Tạo link thanh toán VNPAY cho hóa đơn.
+Tạo đường dẫn (URL) thanh toán online qua VNPAY cho một hóa đơn.
 
-Auth: cần Bearer token.
-
-Quyền: user chỉ thanh toán được hóa đơn của chính mình.
-
-Path params:
-
-| Tên | Mô tả |
-| --- | --- |
-| `paymentId` | ID hóa đơn |
-
-Body: không dùng trong controller hiện tại. Nếu payment đang có method khác `VNPAY`, service tự cập nhật method sang `VNPAY`.
-
-Thành công `200`:
-
-```json
-{
-  "success": true,
-  "message": "Tạo link thanh toán VNPAY thành công.",
-  "data": {
-    "paymentId": 1,
-    "amount": "500000",
-    "paymentUrl": "https://..."
+- **Quyền hạn:** Hội viên sở hữu hóa đơn đó.
+- **Thành công `200`:**
+  ```json
+  {
+    "success": true,
+    "message": "Tạo link thanh toán VNPAY thành công.",
+    "data": {
+      "paymentId": 12,
+      "amount": "1500000",
+      "paymentUrl": "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?..."
+    }
   }
-}
-```
+  ```
+- **Lỗi thường gặp:**
+  - `PAYMENT_NOT_FOUND` (404): Không tìm thấy hóa đơn hoặc không thuộc về người dùng đang gọi.
+  - `PAYMENT_ALREADY_PROCESSED` (400): Hóa đơn đã thanh toán hoặc đã thất bại.
 
-Lỗi thường gặp:
-
-| Status | Lỗi |
-| --- | --- |
-| `400` | Mã hóa đơn không hợp lệ, `PAYMENT_ALREADY_PROCESSED` |
-| `403` | `FORBIDDEN` |
-| `404` | `PAYMENT_NOT_FOUND` |
+---
 
 ## GET `/payments/my-history`
 
-Lấy lịch sử giao dịch của user đang đăng nhập.
+Hội viên tự xem lịch sử các giao dịch thanh toán của chính mình.
 
-Auth: cần Bearer token.
+- **Quyền hạn:** Mọi hội viên đã đăng nhập.
+- **Thành công `200`:** `data` là mảng danh sách hóa đơn.
 
-Trả về `200`:
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "amount": "500000",
-      "method": "CASH",
-      "status": "PAID",
-      "membership": {
-        "plan": {}
-      },
-      "coachAssignment": null
-    }
-  ]
-}
-```
-
-`data` là danh sách payment của user, sắp xếp `created_at` giảm dần, include:
-
-- `membership.plan`
-- `coachAssignment.ptPackage`
+---
 
 ## GET `/payments/:paymentId`
 
-Xem chi tiết một hóa đơn.
+Xem thông tin chi tiết một hóa đơn cụ thể.
 
-Auth: cần Bearer token.
+- **Quyền hạn:** Chủ sở hữu hóa đơn, `ADMIN` hoặc `STAFF`.
+  - **Giới hạn chi nhánh:** Tài khoản `STAFF` chỉ có quyền xem chi tiết hóa đơn thuộc **chi nhánh của STAFF đó**. Nếu hóa đơn thuộc chi nhánh khác, trả lỗi `FORBIDDEN` (403).
+- **Thành công `200`:** `data` là đối tượng Payment chi tiết.
 
-Quyền:
-
-- `ADMIN`, `STAFF`: xem được mọi hóa đơn.
-- User thường: chỉ xem được hóa đơn của chính mình.
-
-Path params:
-
-| Tên | Mô tả |
-| --- | --- |
-| `paymentId` | ID hóa đơn |
-
-Trả về `200`:
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "user_id": 1,
-    "membership_id": 1,
-    "coach_assignment_id": null,
-    "amount": "500000",
-    "method": "VNPAY",
-    "status": "PENDING",
-    "user": {
-      "id": 1,
-      "name": "Nguyen Van A",
-      "email": "user@example.com",
-      "phone": "0900000000"
-    },
-    "membership": {
-      "plan": {}
-    },
-    "coachAssignment": null
-  }
-}
-```
-
-Nếu là hóa đơn PT, `coachAssignment` include:
-
-- `ptPackage`
-- `coach.user.name`
-
-Lỗi thường gặp: `PAYMENT_NOT_FOUND`, `FORBIDDEN`.
+---
 
 ## POST `/payments/:paymentId/confirm`
 
-Admin/staff xác nhận thanh toán tiền mặt.
+Lễ tân (Staff/Admin) xác nhận hội viên thanh toán trực tiếp bằng tiền mặt (CASH) tại quầy. Hệ thống sẽ kích hoạt gói tập hoặc hợp đồng PT tương ứng với hóa đơn.
 
-Auth: cần Bearer token.
+- **Quyền hạn:** `ADMIN`, `STAFF`.
+  - **Giới hạn chi nhánh:**
+    - Tài khoản `STAFF`: Tự động ghi nhận số tiền thu được tại chi nhánh của STAFF đó. Nếu STAFF chưa được gán chi nhánh trong hệ thống, trả lỗi `400 STAFF_BRANCH_REQUIRED`.
+    - Tài khoản `ADMIN`: Mặc định ghi nhận theo `branchId` gửi kèm trong request body (hoặc null nếu không gửi).
+- **Request Body:**
+  ```json
+  {
+    "branchId": 1
+  }
+  ```
+  - **Lưu ý:** `branchId` là optional (chỉ ADMIN có quyền truyền tham số này để điều phối chi nhánh thu tiền mặt).
+- **Thành công `200`:**
+  ```json
+  {
+    "success": true,
+    "message": "Duyệt thanh toán tiền mặt thành công."
+  }
+  ```
 
-Quyền theo service nghiệp vụ: `ADMIN`, `STAFF`.
-
-Path params:
-
-| Tên | Mô tả |
-| --- | --- |
-| `paymentId` | ID hóa đơn |
-
-Thành công `200`:
-
-```json
-{
-  "success": true,
-  "message": "Duyệt thanh toán tiền mặt thành công."
-}
-```
-
-Service sẽ điều phối:
-
-- Payment membership: gọi `MembershipsService.confirmPayment`.
-- Payment PT assignment: gọi `PtBookingService.confirmPayment`.
-- Payment khác: cập nhật payment sang `PAID`.
+---
 
 ## GET `/payments/list`
 
-Admin/staff xem danh sách hóa đơn có phân trang, tìm kiếm và lọc trạng thái.
+Ban quản trị xem toàn bộ danh sách hóa đơn thanh toán trong hệ thống, hỗ trợ tìm kiếm, lọc và phân trang.
 
-Auth: cần Bearer token.
+- **Quyền hạn:** `ADMIN`, `STAFF`.
+  - **Phân vùng dữ liệu:**
+    - Tài khoản `STAFF` chỉ có thể xem danh sách hóa đơn thuộc **chi nhánh của STAFF đó**. Nếu STAFF chưa được gán chi nhánh, trả lỗi `400 STAFF_BRANCH_REQUIRED`.
+    - Tài khoản `ADMIN` có thể xem toàn bộ hoặc lọc theo chi nhánh bất kỳ.
+- **Query Parameters:**
+  - `page` (optional): Trang hiện tại, mặc định `1`.
+  - `limit` (optional): Số lượng hóa đơn/trang, mặc định `10`.
+  - `status` (optional): Lọc theo trạng thái `PENDING`, `PAID`, `FAILED`, `REFUNDED`.
+  - `search` (optional): Tìm theo tên (`name`), email, hoặc số điện thoại (`phone`) của khách hàng sở hữu hóa đơn.
+  - `branchId` (optional): Lọc theo ID chi nhánh (chỉ ADMIN).
 
-Quyền: `ADMIN`, `STAFF`.
-
-Lưu ý route order: với code hiện tại endpoint này bị `GET /:paymentId` bắt trước. Cần đổi thứ tự route như ghi ở đầu file.
-
-Query:
-
-| Tên | Mô tả |
-| --- | --- |
-| `page` | Trang, mặc định `1` |
-| `limit` | Số bản ghi/trang, mặc định `10` |
-| `status` | Lọc theo `PENDING`, `PAID`, `FAILED`, `REFUNDED` |
-| `search` | Tìm theo user `name`, `email`, `phone` |
-
-Trả về `200`:
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "user_id": 1,
-      "amount": "500000",
-      "method": "CASH",
-      "status": "PENDING",
-      "created_at": "2026-06-01T00:00:00.000Z"
-    }
-  ],
-  "meta": {
-    "total": 1,
-    "page": 1,
-    "limit": 10,
-    "totalPages": 1
-  }
-}
-```
-
+- **Thành công `200`:** Trả về danh sách hóa đơn và meta phân trang.

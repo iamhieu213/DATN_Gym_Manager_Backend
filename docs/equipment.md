@@ -2,15 +2,19 @@
 
 Base path: `/equipment`
 
-Tất cả API trong module này cần Bearer token.
+Tất cả API trong module này đều yêu cầu đăng nhập bằng Bearer token.
+
+---
 
 ## Enum `EquipmentStatus`
 
-- `OPERATIONAL`: hoạt động tốt
-- `UNDER_MAINTENANCE`: đang bảo trì
-- `OUT_OF_SERVICE`: hỏng hoặc ngừng hoạt động
+- `OPERATIONAL`: Hoạt động tốt
+- `UNDER_MAINTENANCE`: Đang bảo trì
+- `OUT_OF_SERVICE`: Hỏng / Ngừng hoạt động
 
-## Kiểu dữ liệu equipment
+---
+
+## Kiểu dữ liệu Equipment
 
 ```json
 {
@@ -22,276 +26,269 @@ Tất cả API trong module này cần Bearer token.
   "purchaseDate": "2026-06-01T00:00:00.000Z",
   "lastMaintenanceDate": null,
   "note": null,
+  "branchId": 1,
   "createdAt": "2026-06-01T00:00:00.000Z",
   "updatedAt": "2026-06-01T00:00:00.000Z"
 }
 ```
 
-Ghi chú: DTO hiện tại chưa nhận `location` khi tạo/cập nhật, dù model Prisma có field này.
+---
 
 ## POST `/equipment`
 
-Tạo hàng loạt thiết bị mới, tự sinh mã theo `baseCode`.
+Tạo mới hàng loạt thiết bị phòng gym, mã thiết bị tự động được sinh tăng dần dựa trên `baseCode`.
 
-Auth: cần Bearer token.
+- **Quyền hạn:** Chỉ `ADMIN`.
+- **Request Body:**
+  ```json
+  {
+    "name": "Máy chạy bộ",
+    "baseCode": "EQ-TM",
+    "quantity": 3,
+    "purchaseDate": "2026-06-01",
+    "note": "Lô nhập tháng 6",
+    "branchId": 1
+  }
+  ```
+  - **Lưu ý:** `branchId` là **bắt buộc** để xác định chi nhánh đặt thiết bị.
+- **Thành công `201`:**
+  ```json
+  {
+    "success": true,
+    "message": "Đã thêm mới 3 thiết bị thành công."
+  }
+  ```
+- **Lỗi thường gặp:**
+  - `BAD_REQUEST` (400): Không truyền `branchId`.
+  - `INVALID_QUANTITY` (400): Số lượng `quantity` nhỏ hơn hoặc bằng 0.
+  - `FORBIDDEN` (403): Không phải ADMIN.
 
-Quyền: `ADMIN`.
-
-Body:
-
-```json
-{
-  "name": "Máy chạy bộ",
-  "baseCode": "EQ-TM",
-  "quantity": 3,
-  "purchaseDate": "2026-06-01",
-  "note": "Lô nhập tháng 6"
-}
-```
-
-Logic sinh mã:
-
-- Tìm các equipment có `code` bắt đầu bằng `baseCode`.
-- Lấy suffix số lớn nhất sau dấu `-`.
-- Tạo tiếp mã dạng `EQ-TM-01`, `EQ-TM-02`, ...
-- Thiết bị mới mặc định `status = OPERATIONAL`.
-
-Thành công `201`:
-
-```json
-{
-  "success": true,
-  "message": "Đã thêm mới 3 thiết bị thành công."
-}
-```
-
-Lỗi thường gặp:
-
-| Status | Lỗi |
-| --- | --- |
-| `400` | `INVALID_QUANTITY` |
-| `403` | `FORBIDDEN` |
+---
 
 ## GET `/equipment/summary`
 
-Xem danh sách thiết bị đã gom nhóm theo `name`.
+Xem danh sách tổng kết số lượng thiết bị theo nhóm tên (phục vụ hiển thị danh sách dạng thẻ tổng quát).
 
-Auth: cần Bearer token.
+- **Quyền hạn:** Mọi tài khoản đã đăng nhập.
+  - **Phân vùng dữ liệu:**
+    - Tài khoản `STAFF`: Tự động giới hạn xem thiết bị tại **chi nhánh của STAFF đó**.
+    - Tài khoản `ADMIN`: Mặc định xem toàn bộ hoặc lọc theo `branchId` gửi kèm trong query.
+- **Query Parameters:**
+  - `search` (optional): Lọc tìm kiếm theo tên thiết bị.
+  - `branchId` (optional): Lọc theo ID chi nhánh (chỉ ADMIN có quyền dùng để lọc chi nhánh khác).
+- **Thành công `200`:**
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "name": "Máy chạy bộ",
+        "totalCount": 5,
+        "operationalCount": 4,
+        "brokenCount": 1
+      }
+    ]
+  }
+  ```
+  - **Lưu ý:** `brokenCount` được tính bằng tổng số thiết bị có trạng thái khác `OPERATIONAL` (gồm cả `UNDER_MAINTENANCE` và `OUT_OF_SERVICE`).
 
-Quyền: route yêu cầu đăng nhập. Service hiện tại không giới hạn role, comment route cho phép `ADMIN`, `STAFF`, `COACH`, `USER`.
-
-Query:
-
-| Tên | Mô tả |
-| --- | --- |
-| `search` | Tìm theo tên thiết bị |
-
-Trả về `200`:
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "name": "Máy chạy bộ",
-      "totalCount": 5,
-      "operationalCount": 4,
-      "brokenCount": 1
-    }
-  ]
-}
-```
-
-Ghi chú: `brokenCount` hiện được tính là tổng các thiết bị không ở trạng thái `OPERATIONAL`, bao gồm cả `UNDER_MAINTENANCE` và `OUT_OF_SERVICE`.
+---
 
 ## GET `/equipment/details`
 
-Xem danh sách chi tiết các máy trong một nhóm `name`.
+Xem danh sách chi tiết từng máy cụ thể trong một nhóm thiết bị hoặc hiển thị toàn bộ sảnh.
 
-Auth: cần Bearer token.
+- **Quyền hạn:** Mọi tài khoản đã đăng nhập.
+  - **Phân vùng dữ liệu:**
+    - Tài khoản `STAFF`: Tự động giới hạn thiết bị của **chi nhánh của STAFF đó**.
+    - Tài khoản `ADMIN`: Xem toàn hệ thống hoặc lọc theo `branchId` trong query.
+  - **Cơ chế ẩn thông tin nhạy cảm:**
+    - Nếu là `USER` hoặc `COACH`: Hệ thống chỉ trả về các trường cơ bản: `id`, `name`, `code`, `status`.
+    - Nếu là `ADMIN` hoặc `STAFF`: Trả về toàn bộ các trường thông tin (ngày mua, lịch sử bảo trì, ghi chú...).
+- **Query Parameters:**
+  - `name` (optional): Tên của nhóm thiết bị (ví dụ: `"Máy chạy bộ"`). Nếu bỏ trống sẽ tải toàn bộ thiết bị.
+  - `page` (optional): Trang hiện tại, mặc định `1`.
+  - `limit` (optional): Số lượng bản ghi/trang, mặc định `10`.
+  - `status` (optional): Lọc theo `EquipmentStatus`.
+  - `search` (optional): Tìm kiếm theo mã thiết bị (`code`).
+  - `branchId` (optional): Lọc theo ID chi nhánh (chỉ ADMIN có quyền lọc chi nhánh khác).
 
-Quyền: mọi role đã đăng nhập. Với role `USER` hoặc `COACH`, service chỉ trả các field không nhạy cảm: `id`, `name`, `code`, `status`. Với `ADMIN`/`STAFF`, trả đầy đủ equipment.
-
-Query:
-
-| Tên | Bắt buộc | Mô tả |
-| --- | --- | --- |
-| `name` | Có | Tên nhóm thiết bị, ví dụ `Máy chạy bộ` |
-| `page` | Không | Trang, mặc định `1` |
-| `limit` | Không | Số bản ghi/trang, mặc định `10` |
-| `status` | Không | Lọc theo `EquipmentStatus` |
-| `search` | Không | Tìm theo `code` |
-
-Trả về `200` cho `ADMIN`/`STAFF`:
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "name": "Máy chạy bộ",
-      "code": "EQ-TM-01",
-      "status": "OPERATIONAL",
-      "purchaseDate": "2026-06-01T00:00:00.000Z",
-      "lastMaintenanceDate": null,
-      "note": "Lô nhập tháng 6"
+- **Thành công `200` (Phản hồi cho ADMIN/STAFF):**
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": 1,
+        "name": "Máy chạy bộ",
+        "code": "EQ-TM-01",
+        "status": "OPERATIONAL",
+        "purchaseDate": "2026-06-01T00:00:00.000Z",
+        "lastMaintenanceDate": "2026-06-20T00:00:00.000Z",
+        "note": "Lô nhập tháng 6",
+        "branchId": 1
+      }
+    ],
+    "meta": {
+      "total": 1,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 1
     }
-  ],
-  "meta": {
-    "total": 1,
-    "page": 1,
-    "limit": 10,
-    "totalPages": 1
   }
-}
-```
+  ```
 
-Trả về `200` cho `USER`/`COACH`:
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "name": "Máy chạy bộ",
-      "code": "EQ-TM-01",
-      "status": "OPERATIONAL"
-    }
-  ],
-  "meta": {
-    "total": 1,
-    "page": 1,
-    "limit": 10,
-    "totalPages": 1
-  }
-}
-```
-
-Lỗi thường gặp: thiếu `name` trả `BAD_REQUEST`.
+---
 
 ## PUT `/equipment/bulk-update`
 
-Cập nhật hàng loạt thiết bị theo danh sách ID.
+Cập nhật thông tin/trạng thái hàng loạt cho nhiều thiết bị theo danh sách ID.
 
-Auth: cần Bearer token.
+- **Quyền hạn:** `ADMIN`, `STAFF`.
+  - **Phân quyền chi nhánh:** Tài khoản `STAFF` chỉ có thể cập nhật các thiết bị thuộc **chi nhánh của mình**. Nếu danh sách gửi lên chứa bất kỳ thiết bị nào của chi nhánh khác, hệ thống sẽ trả lỗi `FORBIDDEN` (403).
+- **Request Body:**
+  ```json
+  {
+    "ids": [1, 2, 3],
+    "status": "UNDER_MAINTENANCE",
+    "note": "Bảo trì định kỳ",
+    "lastMaintenanceDate": "2026-06-24"
+  }
+  ```
+- **Thành công `200`:**
+  ```json
+  {
+    "success": true,
+    "message": "Đã cập nhật 3 thiết bị thành công."
+  }
+  ```
 
-Quyền: `ADMIN`, `STAFF`.
-
-Body:
-
-```json
-{
-  "ids": [1, 2, 3],
-  "status": "UNDER_MAINTENANCE",
-  "note": "Bảo trì định kỳ",
-  "lastMaintenanceDate": "2026-06-01"
-}
-```
-
-Thành công `200`:
-
-```json
-{
-  "success": true,
-  "message": "Đã cập nhật 3 thiết bị thành công."
-}
-```
-
-Lỗi thường gặp: `BAD_REQUEST` nếu `ids` rỗng hoặc không truyền.
+---
 
 ## POST `/equipment/bulk-delete`
 
-Xóa hàng loạt thiết bị theo danh sách ID.
+Xóa hàng loạt thiết bị phòng gym ra khỏi hệ thống theo danh sách ID.
 
-Auth: cần Bearer token.
+- **Quyền hạn:** `ADMIN`, `STAFF`. (STAFF chỉ được xóa thiết bị tại chi nhánh của mình).
+- **Request Body:**
+  ```json
+  {
+    "ids": [1, 2, 3]
+  }
+  ```
+- **Thành công `200`:**
+  ```json
+  {
+    "success": true,
+    "message": "Đã xóa 3 thiết bị thành công."
+  }
+  ```
 
-Quyền: `ADMIN`, `STAFF`.
-
-Body:
-
-```json
-{
-  "ids": [1, 2, 3]
-}
-```
-
-Thành công `200`:
-
-```json
-{
-  "success": true,
-  "message": "Đã xóa 3 thiết bị thành công."
-}
-```
-
-Lỗi thường gặp: `BAD_REQUEST` nếu `ids` rỗng hoặc không truyền.
+---
 
 ## PUT `/equipment/:id`
 
-Cập nhật một thiết bị cụ thể.
+Cập nhật trạng thái hoặc ghi chú cho một thiết bị cụ thể.
 
-Auth: cần Bearer token.
-
-Quyền: `ADMIN`, `STAFF`.
-
-Path params:
-
-| Tên | Mô tả |
-| --- | --- |
-| `id` | ID thiết bị |
-
-Body:
-
-```json
-{
-  "status": "OUT_OF_SERVICE",
-  "note": "Hỏng motor",
-  "lastMaintenanceDate": "2026-06-01"
-}
-```
-
-Thành công `200`:
-
-```json
-{
-  "success": true,
-  "message": "Cập nhật thiết bị thành công.",
-  "data": {
-    "id": 1,
-    "name": "Máy chạy bộ",
-    "code": "EQ-TM-01",
+- **Quyền hạn:** `ADMIN`, `STAFF`. (STAFF chỉ được cập nhật thiết bị tại chi nhánh của mình).
+- **Request Body:**
+  ```json
+  {
     "status": "OUT_OF_SERVICE",
-    "note": "Hỏng motor"
+    "note": "Hỏng màn hình điều khiển",
+    "lastMaintenanceDate": "2026-06-24"
   }
-}
-```
+  ```
+- **Thành công `200`:** Trả về đối tượng thiết bị sau khi cập nhật.
 
-Lỗi thường gặp: `BAD_REQUEST`, `EQUIPMENT_NOT_FOUND`, `FORBIDDEN`.
+---
 
 ## DELETE `/equipment/:id`
 
-Xóa một thiết bị cụ thể.
+Xóa một thiết bị cụ thể ra khỏi hệ thống.
 
-Auth: cần Bearer token.
+- **Quyền hạn:** `ADMIN`, `STAFF`. (STAFF chỉ được xóa thiết bị tại chi nhánh của mình).
+- **Thành công `200`:**
+  ```json
+  {
+    "success": true,
+    "message": "Xóa thiết bị thành công."
+  }
+  ```
 
-Quyền: `ADMIN`, `STAFF`.
+---
 
-Path params:
+## GET `/equipment/stats`
 
-| Tên | Mô tả |
-| --- | --- |
-| `id` | ID thiết bị |
+Lấy tổng hợp số lượng máy móc theo từng trạng thái (tổng số máy, đang chạy tốt, đang bảo trì, đã hỏng).
 
-Thành công `200`:
+- **Quyền hạn:** `ADMIN`, `STAFF`.
+  - STAFF chỉ xem thống kê của chi nhánh mình. ADMIN xem toàn bộ hoặc lọc theo `branchId` trong query.
+- **Query Parameters:**
+  - `branchId` (optional): Lọc theo ID chi nhánh (chỉ ADMIN).
+- **Thành công `200`:**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "total": 50,
+      "operational": 45,
+      "underMaintenance": 3,
+      "outOfService": 2
+    }
+  }
+  ```
 
-```json
-{
-  "success": true,
-  "message": "Xóa thiết bị thành công."
-}
-```
+---
 
-Lỗi thường gặp: `BAD_REQUEST`, `EQUIPMENT_NOT_FOUND`, `FORBIDDEN`.
+## GET `/equipment/maintenance/tasks`
 
+Lấy danh sách các lịch bảo trì thiết bị phòng tập.
+
+- **Quyền hạn:** `ADMIN`, `STAFF`. (STAFF chỉ xem lịch thuộc chi nhánh của mình).
+- **Query Parameters:**
+  - `month` (optional): Tháng cần lọc (1 - 12), yêu cầu phải đi kèm `year`.
+  - `year` (optional): Năm cần lọc, yêu cầu đi kèm `month`.
+  - `branchId` (optional): Lọc theo ID chi nhánh (chỉ ADMIN).
+- **Lưu ý:** Nếu không truyền `month` và `year`, hệ thống sẽ trả về danh sách các lịch bảo trì chưa hoàn thành (`PENDING` hoặc `IN_PROGRESS`).
+- **Thành công `200`:** `data` là mảng danh sách lịch bảo trì.
+
+---
+
+## POST `/equipment/maintenance/tasks`
+
+Lên lịch bảo trì mới cho một hoặc nhiều thiết bị. Hệ thống sẽ **tự động** cập nhật trạng thái của tất cả các thiết bị này sang `UNDER_MAINTENANCE`.
+
+- **Quyền hạn:** `ADMIN`, `STAFF`. (STAFF chỉ được lên lịch cho thiết bị thuộc chi nhánh mình).
+- **Request Body:**
+  ```json
+  {
+    "equipmentIds": [1, 2],
+    "title": "Bảo dưỡng xích tạ máy kéo lưng sảnh A",
+    "description": "Cân chỉnh dây cáp và bôi dầu bôi trơn chuyên dụng",
+    "scheduledAt": "2026-06-25",
+    "priority": "NORMAL",
+    "assignedTeam": "Đội Kỹ thuật sảnh A"
+  }
+  ```
+  - **Độ ưu tiên (`priority`):** Nhận một trong các giá trị: `CRITICAL` (Khẩn cấp), `ROUTINE` (Định kỳ), `NORMAL` (Bình thường).
+- **Thành công `201`:** Trả về danh sách các bản ghi lịch bảo trì đã được tạo.
+
+---
+
+## PUT `/equipment/maintenance/tasks/:id`
+
+Cập nhật thông tin hoặc trạng thái cho một lịch bảo trì (ví dụ chuyển trạng thái sang `COMPLETED`).
+- **Quyền hạn:** `ADMIN`, `STAFF`.
+- **Hành vi tự động đặc biệt:** Nếu trạng thái cập nhật gửi lên là **`COMPLETED`** (Đã hoàn thành bảo trì):
+  - Hệ thống sẽ tự động gán ngày hoàn thành `completedAt` bằng thời gian hiện tại.
+  - Hệ thống sẽ tự động tìm thiết bị tương ứng và chuyển trạng thái máy về **`OPERATIONAL`** (Hoạt động tốt), đồng thời cập nhật trường ngày bảo trì cuối `lastMaintenanceDate` bằng thời gian hiện tại.
+- **Request Body:**
+  ```json
+  {
+    "status": "COMPLETED",
+    "cost": 150000,
+    "notes": "Đã thay cáp mới chạy êm."
+  }
+  ```
+- **Thành công `200`:** Trả về bản ghi lịch bảo trì sau cập nhật.

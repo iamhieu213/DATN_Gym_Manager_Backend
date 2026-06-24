@@ -88,6 +88,7 @@ export class PlansService {
 
     //Mo goi tap
     public async activate(id: number, role: string) {
+        this.verifyAdminOrStaff(role);
         const plan = await this.plansRepository.findById(id);
 
         if (!plan) throw new Error("PLAN_NOT_FOUND");
@@ -96,6 +97,7 @@ export class PlansService {
     }
 
     public async deactivate(id: number, role: string) {
+        this.verifyAdminOrStaff(role);
         const plan = await this.plansRepository.findById(id);
 
         if (!plan) throw new Error("PLAN_NOT_FOUND");

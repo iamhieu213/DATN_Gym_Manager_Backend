@@ -2,109 +2,122 @@
 
 Base path: `/plan`
 
-Tất cả API trong module này cần Bearer token.
+Tất cả API trong module này đều yêu cầu đăng nhập bằng Bearer token.
 
-## Kiểu dữ liệu plan
+---
+
+## Kiểu dữ liệu Plan
 
 ```json
 {
   "id": 1,
   "name": "Gói 1 tháng",
   "code": "PLAN_1M",
-  "description": "Mô tả",
+  "description": "Mô tả gói tập",
   "price": "500000",
   "duration_days": 30,
-  "features": ["Tập không giới hạn"],
+  "features": ["Tập không giới hạn", "Nước uống miễn phí"],
   "is_active": true,
   "created_at": "2026-06-01T00:00:00.000Z",
   "updated_at": "2026-06-01T00:00:00.000Z"
 }
 ```
 
+---
+
 ## GET `/plan`
 
-Lấy danh sách gói tập.
+Lấy danh sách các gói tập hiện có trong hệ thống.
 
-Quyền: user đã đăng nhập. Nếu không phải `ADMIN`/`STAFF`, controller ép `is_active=true`.
+- **Quyền hạn:** Mọi tài khoản đã đăng nhập.
+  - **Lọc tự động:** Nếu tài khoản đăng nhập là Hội viên (`USER`) hoặc PT (`COACH`), hệ thống sẽ **bắt buộc** chỉ trả về các gói tập đang mở bán (`is_active = true`), bất kể client có truyền tham số `is_active` nào lên.
+- **Query Parameters:**
+  - `page` (optional): Trang hiện tại, mặc định `1`.
+  - `limit` (optional): Số lượng gói tập/trang, mặc định `10`.
+  - `search` (optional): Tìm kiếm theo tên (`name`) hoặc mô tả (`description`).
+  - `is_active` (optional): Lọc theo trạng thái hoạt động (`"true"` hoặc `"false"` - chỉ có tác dụng với `ADMIN` và `STAFF`).
 
-Query:
+- **Thành công `200`:** `data` là mảng danh sách các gói tập, `meta` là phân trang.
 
-| Tên | Mô tả |
-| --- | --- |
-| `page` | Trang, mặc định `1` |
-| `limit` | Số bản ghi/trang, mặc định `10` |
-| `search` | Tìm theo `name` hoặc `description` |
-| `is_active` | `true` hoặc `false`, chỉ có ý nghĩa đầy đủ với `ADMIN`/`STAFF` |
-
-Trả về `200`: `data` là mảng plan, `meta` là phân trang.
+---
 
 ## GET `/plan/:id`
 
-Lấy chi tiết gói tập.
+Xem thông tin chi tiết của một gói tập.
 
-Trả về `200`: `data` là một plan.
+- **Quyền hạn:** Mọi tài khoản đã đăng nhập.
+- **Thành công `200`:** `data` là đối tượng Plan chi tiết.
+- **Lỗi thường gặp:**
+  - `PLAN_NOT_FOUND` (404): Không tìm thấy gói tập.
+  - `BAD_REQUEST` (400): ID không hợp lệ.
 
-Lỗi thường gặp: `PLAN_NOT_FOUND`, `BAD_REQUEST`.
+---
 
 ## POST `/plan`
 
-Tạo gói tập.
+Tạo mới một gói tập trong hệ thống.
 
-Quyền theo service hiện tại: chỉ `ADMIN`.
+- **Quyền hạn:** Chỉ `ADMIN`.
+- **Request Body:**
+  ```json
+  {
+    "name": "Gói 1 tháng",
+    "code": "PLAN_1M",
+    "description": "Mô tả",
+    "price": 500000,
+    "duration_days": 30,
+    "features": ["Tập không giới hạn"],
+    "is_active": true
+  }
+  ```
+- **Thành công `201`:** Trả về đối tượng Plan vừa được tạo.
+- **Lỗi thường gặp:**
+  - `MISSING_REQUIRED_FIELDS` (400): Thiếu các trường bắt buộc (`name`, `price`, `duration_days`).
+  - `PLAN_CODE_ALREADY_EXISTS` (400): Mã code của gói tập đã tồn tại.
+  - `FORBIDDEN` (403): Không phải ADMIN.
 
-Body:
-
-```json
-{
-  "name": "Gói 1 tháng",
-  "code": "PLAN_1M",
-  "description": "Mô tả",
-  "price": 500000,
-  "duration_days": 30,
-  "features": ["Tập không giới hạn"],
-  "is_active": true
-}
-```
-
-Trả về `201`: `data` là plan mới.
-
-Lỗi thường gặp: `MISSING_REQUIRED_FIELDS`, `PLAN_CODE_ALREADY_EXISTS`, `FORBIDDEN`.
+---
 
 ## PATCH `/plan/:id`
 
-Cập nhật gói tập.
+Cập nhật thông tin của gói tập.
 
-Quyền theo service hiện tại: chỉ `ADMIN`.
+- **Quyền hạn:** Chỉ `ADMIN`.
+- **Request Body:** Các trường cần cập nhật (tất cả là optional).
+- **Thành công `200`:** Trả về đối tượng Plan sau khi cập nhật.
+- **Lỗi thường gặp:**
+  - `PLAN_NOT_FOUND` (404)
+  - `PLAN_CODE_ALREADY_EXISTS` (400)
+  - `FORBIDDEN` (403)
 
-Body:
-
-```json
-{
-  "name": "Gói 3 tháng",
-  "code": "PLAN_3M",
-  "description": "Mô tả mới",
-  "price": 1200000,
-  "duration_days": 90,
-  "features": ["Tập không giới hạn", "Tặng khăn"],
-  "is_active": true
-}
-```
-
-Trả về `200`: `data` là plan sau cập nhật.
+---
 
 ## PATCH `/plan/:id/activate`
 
-Mở bán gói tập, set `is_active=true`.
+Mở bán lại gói tập (đặt `is_active = true`).
 
-Quyền theo controller comment là admin/staff, nhưng service hiện tại chỉ kiểm tra plan tồn tại và chưa gọi kiểm tra role.
+- **Quyền hạn:** Chỉ `ADMIN`.
+- **Thành công `200`:**
+  ```json
+  {
+    "success": true,
+    "message": "Kích hoạt gói tập thành công.",
+    "data": { ... }
+  }
+  ```
 
-Trả về `200`: `data` là plan sau cập nhật.
+---
 
 ## PATCH `/plan/:id/deactivate`
 
-Khóa gói tập, set `is_active=false`.
+Khóa/ngừng bán gói tập (đặt `is_active = false`).
 
-Quyền theo controller comment là admin/staff, nhưng service hiện tại chỉ kiểm tra plan tồn tại và chưa gọi kiểm tra role.
-
-Trả về `200`: `data` là plan sau cập nhật.
-
+- **Quyền hạn:** Chỉ `ADMIN`.
+- **Thành công `200`:**
+  ```json
+  {
+    "success": true,
+    "message": "Tạm ngưng gói tập thành công.",
+    "data": { ... }
+  }
+  ```

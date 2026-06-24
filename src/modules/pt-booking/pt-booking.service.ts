@@ -299,7 +299,7 @@ export class PtBookingService {
                 { newCoach: { user: { branchId: actorBranchId } } }
             ]
         }
-        return this.repository.findChangeRequests(status);
+        return this.repository.findChangeRequests(where);
     }
 
     // Lay danh sach dang ky thue PT cua 1 hoi vien
@@ -322,6 +322,6 @@ export class PtBookingService {
                 user : { branchId : actorBranchId } //Chi lay hop dong co PT thuoc chi nhanh cua Staff
             }
         }
-        return this.repository.findAllAssignments(status);
+        return this.repository.findAllAssignments(where);
     }
 }
