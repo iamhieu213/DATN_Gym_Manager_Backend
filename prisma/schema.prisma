@@ -87,6 +87,11 @@ model User {
   coachAssignments    CoachAssignment[] @relation("UserCoachAssignments")
   workoutSessions     WorkoutSession[]
   coachChangeRequests CoachChangeRequest[]
+
+  // Thiết lập quan hệ với BodyMetric
+  bodyMetrics         BodyMetric[]         @relation("UserMetrics")
+  recordedMetrics     BodyMetric[]         @relation("RecordedMetrics")
+
   @@map("users")
 
   @@index([email])
@@ -467,4 +472,29 @@ model GymBranch {
   payments     Payment[]
 
   @@map("gym_branches")
+}
+
+model BodyMetric {
+  id              Int      @id @default(autoincrement())
+  user_id         Int      @map("user_id")
+  weight_kg       Float
+  height_cm       Float
+  bmi             Float?
+  body_fat_pct    Float?   @map("body_fat_pct")
+  muscle_mass_kg  Float?   @map("muscle_mass_kg")
+  water_pct       Float?   @map("water_pct")
+  note            String?  @db.Text
+  recorded_at     DateTime @default(now()) @map("recorded_at") @db.Date
+
+  // ID của người thực hiện đo (Có thể là chính hội viên tự nhập, hoặc PT/Staff đo hộ)
+  recorded_by_id  Int?     @map("recorded_by_id")
+
+  // Quan hệ liên kết
+  user            User     @relation("UserMetrics", fields: [user_id], references: [id], onDelete: Cascade)
+  recordedBy      User?    @relation("RecordedMetrics", fields: [recorded_by_id], references: [id], onDelete: SetNull)
+
+  @@map("body_metrics")
+  @@index([user_id])
+  @@index([recorded_by_id])
+  @@index([recorded_at])
 }
