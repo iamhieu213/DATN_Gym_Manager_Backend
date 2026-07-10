@@ -30,19 +30,19 @@ enum Gender {
 
 // Các mục tiêu tập luyện chuyên biệt
 enum TrainingGoal {
-  WEIGHT_LOSS        // Giảm cân / Giảm mỡ
-  MUSCLE_GAIN        // Tăng cơ / Thể hình
-  COMPETITION_PREP   // Huấn luyện thi đấu chuyên nghiệp
-  REHABILITATION     // Phục hồi chấn thương / Trị liệu
-  GENERAL_FITNESS    // Duy trì vóc dáng / Sức khỏe tổng quát
+  WEIGHT_LOSS // Giảm cân / Giảm mỡ
+  MUSCLE_GAIN // Tăng cơ / Thể hình
+  COMPETITION_PREP // Huấn luyện thi đấu chuyên nghiệp
+  REHABILITATION // Phục hồi chấn thương / Trị liệu
+  GENERAL_FITNESS // Duy trì vóc dáng / Sức khỏe tổng quát
 }
 
 // Trạng thái của buổi tập cá nhân
 enum WorkoutSessionStatus {
-  PLANNED            // Lịch tập chính thức
+  PLANNED // Lịch tập chính thức
   PENDING_RESCHEDULE // Đang chờ PT duyệt yêu cầu đổi lịch
-  COMPLETED          // Đã tập xong
-  SKIPPED            // Đã hủy/bỏ tập
+  COMPLETED // Đã tập xong
+  SKIPPED // Đã hủy/bỏ tập
 }
 
 // Trạng thái lớp học nhóm của PT
@@ -54,48 +54,49 @@ enum GroupClassStatus {
 }
 
 model User {
-  id                Int          @id @default(autoincrement())
-  email             String       @unique @db.VarChar(255)
-  passwordHash      String?      @map("password_hash") @db.VarChar(255)
-  name              String       @db.VarChar(255)
-  phone             String?      @unique @db.VarChar(30)
-  dateOfBirth       DateTime?    @map("date_of_birth")
-  emailVerifiedAt   DateTime?    @map("email_verified_at")
+  id              Int       @id @default(autoincrement())
+  email           String    @unique @db.VarChar(255)
+  passwordHash    String?   @map("password_hash") @db.VarChar(255)
+  name            String    @db.VarChar(255)
+  phone           String?   @unique @db.VarChar(30)
+  dateOfBirth     DateTime? @map("date_of_birth")
+  emailVerifiedAt DateTime? @map("email_verified_at")
 
-  role              UserRole     @default(USER)
-  status            UserStatus   @default(ACTIVE)
+  role   UserRole   @default(USER)
+  status UserStatus @default(ACTIVE)
 
-  googleId          String?      @unique @map("google_id") @db.VarChar(255)
+  googleId String? @unique @map("google_id") @db.VarChar(255)
 
   // New profile fields
-  avatarUrl         String?      @map("avatar_url") @db.VarChar(255)
-  gender            Gender?
-  citizenId         String?      @unique @map("citizen_id") @db.VarChar(50)
-  address           String?      @db.VarChar(255)
-  emergencyContact  String?      @map("emergency_contact") @db.VarChar(255)
+  avatarUrl        String? @map("avatar_url") @db.VarChar(255)
+  gender           Gender?
+  citizenId        String? @unique @map("citizen_id") @db.VarChar(50)
+  address          String? @db.VarChar(255)
+  emergencyContact String? @map("emergency_contact") @db.VarChar(255)
 
-  createdAt         DateTime     @default(now()) @map("created_at")
-  updatedAt         DateTime     @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  branchId          Int?         @map("branch_id")
-  branch            GymBranch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  branchId Int?       @map("branch_id")
+  branch   GymBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
-  memberships       Membership[]
-  payments          Payment[]
+  memberships         Membership[]
+  payments            Payment[]
   checkIns            CheckIn[]
   coachProfile        CoachProfile?
-  coachAssignments    CoachAssignment[] @relation("UserCoachAssignments")
+  coachAssignments    CoachAssignment[]    @relation("UserCoachAssignments")
   workoutSessions     WorkoutSession[]
   coachChangeRequests CoachChangeRequest[]
 
-  // Thiết lập quan hệ với BodyMetric
-  bodyMetrics         BodyMetric[]         @relation("UserMetrics")
-  recordedMetrics     BodyMetric[]         @relation("RecordedMetrics")
+  notifications Notification[]
 
-  @@map("users")
+  // Thiết lập quan hệ với BodyMetric
+  bodyMetrics     BodyMetric[] @relation("UserMetrics")
+  recordedMetrics BodyMetric[] @relation("RecordedMetrics")
 
   @@index([email])
   @@index([role, status])
+  @@map("users")
 }
 
 enum MembershipStatus {
@@ -105,18 +106,21 @@ enum MembershipStatus {
   PENDING
   UPGRADED
 }
+
 enum PaymentMethod {
   CASH
   VNPAY
   MOMO
   BANK_TRANSFER
 }
+
 enum PaymentStatus {
   PENDING
   PAID
   FAILED
   REFUNDED
 }
+
 model Plan {
   id            Int          @id @default(autoincrement())
   name          String       @db.VarChar(255)
@@ -130,8 +134,10 @@ model Plan {
   updated_at    DateTime     @updatedAt @map("updated_at")
   memberships   Membership[]
   payments      Payment[]
+
   @@map("plans")
 }
+
 model Membership {
   id         Int              @id @default(autoincrement())
   user_id    Int              @map("user_id") // Khớp với kiểu Int của User.id
@@ -145,52 +151,54 @@ model Membership {
   user       User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
   plan       Plan             @relation(fields: [plan_id], references: [id], onDelete: Restrict)
   payments   Payment[]
-  @@map("memberships")
+
   @@index([user_id])
   @@index([plan_id])
+  @@map("memberships")
 }
+
 model Payment {
-  id                  Int              @id @default(autoincrement())
-  user_id             Int              @map("user_id")
-  membership_id       Int?             @map("membership_id")
-  plan_id             Int?             @map("plan_id")
-  coach_assignment_id Int?             @map("coach_assignment_id")
-  amount              Decimal          @db.Decimal(12, 2)
+  id                  Int           @id @default(autoincrement())
+  user_id             Int           @map("user_id")
+  membership_id       Int?          @map("membership_id")
+  plan_id             Int?          @map("plan_id")
+  coach_assignment_id Int?          @map("coach_assignment_id")
+  amount              Decimal       @db.Decimal(12, 2)
   method              PaymentMethod
-  status              PaymentStatus    @default(PENDING)
-  transaction_ref     String?          @map("transaction_ref") @db.VarChar(255)
-  gateway_response    Json?            @map("gateway_response")
-  paid_at             DateTime?        @map("paid_at")
-  created_at          DateTime         @default(now()) @map("created_at")
+  status              PaymentStatus @default(PENDING)
+  transaction_ref     String?       @map("transaction_ref") @db.VarChar(255)
+  gateway_response    Json?         @map("gateway_response")
+  paid_at             DateTime?     @map("paid_at")
+  created_at          DateTime      @default(now()) @map("created_at")
 
-  branchId            Int?             @map("branch_id")
-  branch              GymBranch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  branchId Int?       @map("branch_id")
+  branch   GymBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
-  user                User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  membership          Membership?      @relation(fields: [membership_id], references: [id], onDelete: Cascade)
-  plan                Plan?            @relation(fields: [plan_id], references: [id], onDelete: Restrict)
-  coachAssignment     CoachAssignment? @relation(fields: [coach_assignment_id], references: [id], onDelete: Cascade)
+  user                User                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  membership          Membership?          @relation(fields: [membership_id], references: [id], onDelete: Cascade)
+  plan                Plan?                @relation(fields: [plan_id], references: [id], onDelete: Restrict)
+  coachAssignment     CoachAssignment?     @relation(fields: [coach_assignment_id], references: [id], onDelete: Cascade)
   coachChangeRequests CoachChangeRequest[]
-  
-  @@map("payments")
+
   @@index([user_id])
   @@index([membership_id])
   @@index([plan_id])
   @@index([coach_assignment_id])
+  @@map("payments")
 }
 
 model CheckIn {
-  id         Int      @id @default(autoincrement())
-  userId     Int      @map("user_id")
-  checkInAt  DateTime @default(now()) @map("check_in_at")
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  checkInAt DateTime @default(now()) @map("check_in_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  branchId   Int      @map("branch_id")
-  branch     GymBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  branchId Int       @map("branch_id")
+  branch   GymBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
 
-  @@map("check_ins")
   @@index([userId])
   @@index([checkInAt])
+  @@map("check_ins")
 }
 
 // ==========================================
@@ -199,15 +207,15 @@ model CheckIn {
 
 // 1. Hồ sơ Huấn luyện viên
 model CoachProfile {
-  id           Int                 @id @default(autoincrement())
-  userId       Int                 @unique @map("user_id")
-  speciality   String?             @db.VarChar(255)
-  bio          String?             @db.Text
-  isAvailable  Boolean             @default(true) @map("is_available")
-  createdAt    DateTime            @default(now()) @map("created_at")
-  updatedAt    DateTime            @updatedAt @map("updated_at")
+  id          Int      @id @default(autoincrement())
+  userId      Int      @unique @map("user_id")
+  speciality  String?  @db.VarChar(255)
+  bio         String?  @db.Text
+  isAvailable Boolean  @default(true) @map("is_available")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   availabilities      CoachAvailability[]
   packages            CoachPtPackage[]
   assignments         CoachAssignment[]
@@ -221,36 +229,36 @@ model CoachProfile {
 
 // 2. Lịch rảnh trong tuần của PT (dùng để lọc giờ đặt lịch)
 model CoachAvailability {
-  id           Int          @id @default(autoincrement())
-  coachId      Int          @map("coach_id")
-  dayOfWeek    Int          @map("day_of_week") // 0: Chủ Nhật, 1: Thứ 2, ..., 6: Thứ 7
-  startTime    String       @map("start_time")   // Định dạng "18:00"
-  endTime      String       @map("end_time")     // Định dạng "20:00"
-  startMinutes Int          @map("start_minutes") // Số phút tính từ 00:00 (Ví dụ: 18:00 = 1080)
-  endMinutes   Int          @map("end_minutes")   // Số phút tính từ 00:00 (Ví dụ: 20:00 = 1200)
+  id           Int    @id @default(autoincrement())
+  coachId      Int    @map("coach_id")
+  dayOfWeek    Int    @map("day_of_week") // 0: Chủ Nhật, 1: Thứ 2, ..., 6: Thứ 7
+  startTime    String @map("start_time") // Định dạng "18:00"
+  endTime      String @map("end_time") // Định dạng "20:00"
+  startMinutes Int    @map("start_minutes") // Số phút tính từ 00:00 (Ví dụ: 18:00 = 1080)
+  endMinutes   Int    @map("end_minutes") // Số phút tính từ 00:00 (Ví dụ: 20:00 = 1200)
 
-  coach        CoachProfile @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  coach CoachProfile @relation(fields: [coachId], references: [id], onDelete: Cascade)
 
-  @@map("coach_availabilities")
   @@index([coachId])
   @@index([dayOfWeek, startMinutes, endMinutes])
+  @@map("coach_availabilities")
 }
 
 // 3. Gói Combo PT mẫu (không lưu giá trực tiếp)
 model PtPackage {
-  id               Int               @id @default(autoincrement())
-  name             String            @db.VarChar(255) // Ví dụ: "Combo 20 buổi tập"
-  code             String            @unique @db.VarChar(50)
-  numberOfSessions Int               @map("number_of_sessions") // 20
-  durationDays     Int               @map("duration_days") // 60 ngày hạn sử dụng
+  id               Int          @id @default(autoincrement())
+  name             String       @db.VarChar(255) // Ví dụ: "Combo 20 buổi tập"
+  code             String       @unique @db.VarChar(50)
+  numberOfSessions Int          @map("number_of_sessions") // 20
+  durationDays     Int          @map("duration_days") // 60 ngày hạn sử dụng
   goal             TrainingGoal // Mục tiêu tập luyện
-  isActive         Boolean           @default(true) @map("is_active")
-  createdAt        DateTime          @default(now()) @map("created_at")
-  updatedAt        DateTime          @updatedAt @map("updated_at")
+  isActive         Boolean      @default(true) @map("is_active")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
 
-  coachPrices      CoachPtPackage[]
-  assignments      CoachAssignment[]
-  changeRequests   CoachChangeRequest[] @relation("NewPackageRelation")
+  coachPrices    CoachPtPackage[]
+  assignments    CoachAssignment[]
+  changeRequests CoachChangeRequest[] @relation("NewPackageRelation")
 
   @@map("pt_packages")
 }
@@ -262,8 +270,8 @@ model CoachPtPackage {
   price       Decimal @db.Decimal(12, 2) // Giá riêng của PT
   isActive    Boolean @default(true) @map("is_active")
 
-  coach       CoachProfile @relation(fields: [coachId], references: [id], onDelete: Cascade)
-  ptPackage   PtPackage    @relation(fields: [ptPackageId], references: [id], onDelete: Cascade)
+  coach     CoachProfile @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  ptPackage PtPackage    @relation(fields: [ptPackageId], references: [id], onDelete: Cascade)
 
   @@id([coachId, ptPackageId])
   @@map("coach_pt_packages")
@@ -271,28 +279,28 @@ model CoachPtPackage {
 
 // 5. Hợp đồng thuê PT của hội viên
 model CoachAssignment {
-  id                Int          @id @default(autoincrement())
-  coachId           Int          @map("coach_id")
-  userId            Int          @map("user_id")
-  ptPackageId       Int          @map("pt_package_id")
-  totalSessions     Int          @map("total_sessions")
-  remainingSessions Int          @map("remaining_sessions")
-  pricePaid         Decimal      @map("price_paid") @db.Decimal(12, 2)
-  startDate         DateTime     @map("start_date") @db.Date
-  endDate           DateTime     @map("end_date") @db.Date
-  status            String       @default("ACTIVE") @db.VarChar(50) // PENDING, ACTIVE, COMPLETED, EXPIRED
-  createdAt         DateTime     @default(now()) @map("created_at")
-  updatedAt         DateTime     @updatedAt @map("updated_at")
+  id                Int      @id @default(autoincrement())
+  coachId           Int      @map("coach_id")
+  userId            Int      @map("user_id")
+  ptPackageId       Int      @map("pt_package_id")
+  totalSessions     Int      @map("total_sessions")
+  remainingSessions Int      @map("remaining_sessions")
+  pricePaid         Decimal  @map("price_paid") @db.Decimal(12, 2)
+  startDate         DateTime @map("start_date") @db.Date
+  endDate           DateTime @map("end_date") @db.Date
+  status            String   @default("ACTIVE") @db.VarChar(50) // PENDING, ACTIVE, COMPLETED, EXPIRED
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
-  coach             CoachProfile @relation(fields: [coachId], references: [id], onDelete: Restrict)
+  coach               CoachProfile         @relation(fields: [coachId], references: [id], onDelete: Restrict)
   user                User                 @relation("UserCoachAssignments", fields: [userId], references: [id], onDelete: Cascade)
   ptPackage           PtPackage            @relation(fields: [ptPackageId], references: [id], onDelete: Restrict)
   payments            Payment[]
   coachChangeRequests CoachChangeRequest[]
 
-  @@map("coach_assignments")
   @@index([coachId])
   @@index([userId])
+  @@map("coach_assignments")
 }
 
 // 6. Buổi hẹn tập cá nhân của hội viên với PT
@@ -308,31 +316,31 @@ model WorkoutSession {
   createdAt           DateTime             @default(now()) @map("created_at")
   updatedAt           DateTime             @updatedAt @map("updated_at")
 
-  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  coach           CoachProfile?        @relation(fields: [coachId], references: [id], onDelete: SetNull)
-  exerciseLogs    ExerciseLog[]
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coach        CoachProfile? @relation(fields: [coachId], references: [id], onDelete: SetNull)
+  exerciseLogs ExerciseLog[]
 
-  @@map("workout_sessions")
   @@index([userId])
   @@index([coachId])
   @@index([scheduledAt])
+  @@map("workout_sessions")
 }
 
 // 7. Giáo án bài tập chi tiết cho từng buổi tập
 model ExerciseLog {
-  id           Int            @id @default(autoincrement())
-  sessionId    Int            @map("session_id")
-  exerciseName String         @map("exercise_name") @db.VarChar(255)
+  id           Int     @id @default(autoincrement())
+  sessionId    Int     @map("session_id")
+  exerciseName String  @map("exercise_name") @db.VarChar(255)
   sets         Int
   reps         Int
-  weightKg     Float          @map("weight_kg")
-  restSeconds  Int            @map("rest_seconds")
-  note         String?        @db.Text
+  weightKg     Float   @map("weight_kg")
+  restSeconds  Int     @map("rest_seconds")
+  note         String? @db.Text
 
-  session      WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  @@map("exercise_logs")
   @@index([sessionId])
+  @@map("exercise_logs")
 }
 
 // 8. Lớp học nhóm do PT dạy (để check trùng lịch)
@@ -346,52 +354,52 @@ model GroupClass {
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
 
-  coach           CoachProfile     @relation(fields: [coachId], references: [id], onDelete: Restrict)
+  coach CoachProfile @relation(fields: [coachId], references: [id], onDelete: Restrict)
 
-  branchId        Int              @map("branch_id")
-  branch          GymBranch        @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  branchId Int       @map("branch_id")
+  branch   GymBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
 
-  @@map("group_classes")
   @@index([coachId])
   @@index([scheduledAt])
+  @@map("group_classes")
 }
 
 // 9. Yêu cầu đổi PT của hội viên
 model CoachChangeRequest {
-  id              Int             @id @default(autoincrement())
-  userId          Int             @map("user_id")
-  assignmentId    Int             @map("assignment_id")
-  oldCoachId      Int             @map("old_coach_id")
-  newCoachId      Int             @map("new_coach_id")
-  newPtPackageId  Int?            @map("new_pt_package_id")
-  priceDifference Decimal         @default(0.00) @map("price_difference") @db.Decimal(12, 2)
-  paymentId       Int?            @map("payment_id") // THÊM: Liên kết tới hóa đơn đóng thêm tiền
-  reason          String          @db.Text
-  status          String          @default("PENDING") @db.VarChar(50)
-  paymentMethod   PaymentMethod   @default(CASH) @map("payment_method")
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  id              Int           @id @default(autoincrement())
+  userId          Int           @map("user_id")
+  assignmentId    Int           @map("assignment_id")
+  oldCoachId      Int           @map("old_coach_id")
+  newCoachId      Int           @map("new_coach_id")
+  newPtPackageId  Int?          @map("new_pt_package_id")
+  priceDifference Decimal       @default(0.00) @map("price_difference") @db.Decimal(12, 2)
+  paymentId       Int?          @map("payment_id") // THÊM: Liên kết tới hóa đơn đóng thêm tiền
+  reason          String        @db.Text
+  status          String        @default("PENDING") @db.VarChar(50)
+  paymentMethod   PaymentMethod @default(CASH) @map("payment_method")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
 
-  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignment      CoachAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  oldCoach        CoachProfile    @relation("OldCoachRelation", fields: [oldCoachId], references: [id], onDelete: Restrict)
-  newCoach        CoachProfile    @relation("NewCoachRelation", fields: [newCoachId], references: [id], onDelete: Restrict)
-  newPtPackage    PtPackage?      @relation("NewPackageRelation", fields: [newPtPackageId], references: [id], onDelete: SetNull)
-  payment         Payment?        @relation(fields: [paymentId], references: [id], onDelete: SetNull) // Quan hệ mới với Payment
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignment   CoachAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  oldCoach     CoachProfile    @relation("OldCoachRelation", fields: [oldCoachId], references: [id], onDelete: Restrict)
+  newCoach     CoachProfile    @relation("NewCoachRelation", fields: [newCoachId], references: [id], onDelete: Restrict)
+  newPtPackage PtPackage?      @relation("NewPackageRelation", fields: [newPtPackageId], references: [id], onDelete: SetNull)
+  payment      Payment?        @relation(fields: [paymentId], references: [id], onDelete: SetNull) // Quan hệ mới với Payment
 
-  @@map("coach_change_requests")
   @@index([userId])
   @@index([assignmentId])
   @@index([oldCoachId])
   @@index([newCoachId])
   @@index([paymentId])
+  @@map("coach_change_requests")
 }
 
 // 10. Thiết bị phòng gym
 enum EquipmentStatus {
-  OPERATIONAL       // Hoạt động tốt
+  OPERATIONAL // Hoạt động tốt
   UNDER_MAINTENANCE // Đang bảo trì
-  OUT_OF_SERVICE    // Hỏng / Ngừng hoạt động
+  OUT_OF_SERVICE // Hỏng / Ngừng hoạt động
 }
 
 model Equipment {
@@ -406,63 +414,63 @@ model Equipment {
   createdAt           DateTime        @default(now()) @map("created_at")
   updatedAt           DateTime        @updatedAt @map("updated_at")
 
-  maintenanceTasks    MaintenanceTask[]
+  maintenanceTasks MaintenanceTask[]
 
-  branchId            Int             @map("branch_id")
-  branch              GymBranch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  branchId Int       @map("branch_id")
+  branch   GymBranch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
-  @@map("equipments")
   @@index([status])
+  @@map("equipments")
 }
 
 // Mức độ ưu tiên của công việc bảo trì
 enum MaintenancePriority {
-  CRITICAL  // Khẩn cấp (Ví dụ: hỏng cáp tạ)
-  ROUTINE   // Định kỳ (Ví dụ: nạp khí nitơ)
-  NORMAL    // Bình thường
+  CRITICAL // Khẩn cấp (Ví dụ: hỏng cáp tạ)
+  ROUTINE // Định kỳ (Ví dụ: nạp khí nitơ)
+  NORMAL // Bình thường
 }
 
 // Trạng thái của công việc bảo trì
 enum MaintenanceStatus {
-  PENDING       // Đang chờ thực hiện
-  IN_PROGRESS   // Đang tiến hành sửa chữa
-  COMPLETED     // Đã hoàn thành
-  CANCELLED     // Đã hủy lịch
+  PENDING // Đang chờ thực hiện
+  IN_PROGRESS // Đang tiến hành sửa chữa
+  COMPLETED // Đã hoàn thành
+  CANCELLED // Đã hủy lịch
 }
 
 model MaintenanceTask {
   id           Int                 @id @default(autoincrement())
   equipmentId  Int                 @map("equipment_id") // ID thiết bị cần sửa
-  title        String              @db.VarChar(255)     // Tiêu đề đầu việc (Ví dụ: "Cân chỉnh băng tải")
-  description  String?             @db.Text             // Mô tả chi tiết (Ví dụ: "Cần chỉnh 6 máy chạy bộ sảnh A")
+  title        String              @db.VarChar(255) // Tiêu đề đầu việc (Ví dụ: "Cân chỉnh băng tải")
+  description  String?             @db.Text // Mô tả chi tiết (Ví dụ: "Cần chỉnh 6 máy chạy bộ sảnh A")
   scheduledAt  DateTime            @map("scheduled_at") // Ngày lên lịch thực hiện
   completedAt  DateTime?           @map("completed_at") // Ngày thực tế hoàn thành
   priority     MaintenancePriority @default(NORMAL)
   status       MaintenanceStatus   @default(PENDING)
   assignedTeam String?             @map("assigned_team") @db.VarChar(255) // Đội kỹ thuật phụ trách (Ví dụ: "Engineering Team")
-  cost         Decimal?            @db.Decimal(12, 2)   // Chi phí sửa chữa (nếu có)
-  notes        String?             @db.Text             // Ghi chú thêm
+  cost         Decimal?            @db.Decimal(12, 2) // Chi phí sửa chữa (nếu có)
+  notes        String?             @db.Text // Ghi chú thêm
   createdAt    DateTime            @default(now()) @map("created_at")
   updatedAt    DateTime            @updatedAt @map("updated_at")
 
   // Thiết lập mối quan hệ với bảng Equipment
-  equipment    Equipment           @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
 
-  @@map("maintenance_tasks")
   @@index([equipmentId])
   @@index([scheduledAt])
   @@index([status])
+  @@map("maintenance_tasks")
 }
 
 model GymBranch {
-  id          Int            @id @default(autoincrement())
-  name        String         @db.VarChar(255) // Ví dụ: "Gym Center Quận 1"
-  code        String         @unique @db.VarChar(50) // Ví dụ: "CN_Q1" dùng để nhận diện
-  address     String         @db.VarChar(255)
-  phone       String?        @db.VarChar(30)
-  isActive    Boolean        @default(true) @map("is_active")
-  createdAt   DateTime       @default(now()) @map("created_at")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255) // Ví dụ: "Gym Center Quận 1"
+  code      String   @unique @db.VarChar(50) // Ví dụ: "CN_Q1" dùng để nhận diện
+  address   String   @db.VarChar(255)
+  phone     String?  @db.VarChar(30)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Thiết lập các mối quan hệ (Một chi nhánh có nhiều User, Thiết bị, Lượt check-in, v.v...)
   users        User[]
@@ -475,26 +483,65 @@ model GymBranch {
 }
 
 model BodyMetric {
-  id              Int      @id @default(autoincrement())
-  user_id         Int      @map("user_id")
-  weight_kg       Float
-  height_cm       Float
-  bmi             Float?
-  body_fat_pct    Float?   @map("body_fat_pct")
-  muscle_mass_kg  Float?   @map("muscle_mass_kg")
-  water_pct       Float?   @map("water_pct")
-  note            String?  @db.Text
-  recorded_at     DateTime @default(now()) @map("recorded_at") @db.Date
+  id             Int      @id @default(autoincrement())
+  user_id        Int      @map("user_id")
+  weight_kg      Float
+  height_cm      Float
+  bmi            Float?
+  body_fat_pct   Float?   @map("body_fat_pct")
+  muscle_mass_kg Float?   @map("muscle_mass_kg")
+  water_pct      Float?   @map("water_pct")
+  note           String?  @db.Text
+  recorded_at    DateTime @default(now()) @map("recorded_at") @db.Date
 
   // ID của người thực hiện đo (Có thể là chính hội viên tự nhập, hoặc PT/Staff đo hộ)
-  recorded_by_id  Int?     @map("recorded_by_id")
+  recorded_by_id Int? @map("recorded_by_id")
 
   // Quan hệ liên kết
-  user            User     @relation("UserMetrics", fields: [user_id], references: [id], onDelete: Cascade)
-  recordedBy      User?    @relation("RecordedMetrics", fields: [recorded_by_id], references: [id], onDelete: SetNull)
+  user       User  @relation("UserMetrics", fields: [user_id], references: [id], onDelete: Cascade)
+  recordedBy User? @relation("RecordedMetrics", fields: [recorded_by_id], references: [id], onDelete: SetNull)
 
-  @@map("body_metrics")
   @@index([user_id])
   @@index([recorded_by_id])
   @@index([recorded_at])
+  @@map("body_metrics")
+}
+
+enum NotificationType {
+  MEMBERSHIP_REGISTERED
+  MEMBERSHIP_ACTIVATED
+  MEMBERSHIP_EXPIRING
+  SESSION_SCHEDULED
+  SESSION_RESCHEDULE_REQUESTED
+  SESSION_RESCHEDULE_APPROVED
+  SESSION_RESCHEDULE_REJECTED
+  SESSION_CANCELLED
+  SESSION_REMINDER
+  PT_SESSIONS_RUNNING_LOW
+  COACH_CHANGE_REQUESTED
+  COACH_CHANGE_DECISION
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  PAYMENT_PENDING
+  NEW_USER_REGISTERED
+  EQUIPMENT_REPORTED_BROKEN
+  MAINTENANCE_TASK_ASSIGNED
+  SYSTEM_ANNOUNCEMENT
+}
+
+model Notification {
+  id          Int              @id @default(autoincrement())
+  userId      Int              @map("user_id")
+  title       String           @db.VarChar(255)
+  content     String           @db.Text
+  type        NotificationType
+  isRead      Boolean          @default(false) @map("is_read")
+  referenceId String?          @map("reference_id") // ID tham chiếu tới Hóa đơn, Lịch tập, Yêu cầu đổi...
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("notifications")
 }
