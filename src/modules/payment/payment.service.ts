@@ -3,6 +3,7 @@ import { MembershipsService } from '../membership/membership.service';
 import { PtBookingService } from '../pt-booking/pt-booking.service';
 import { PaymentMethod, PaymentStatus } from '@prisma/client';
 import { ListPaymentsQueryDto } from './payment.dto';
+import { eventEmitter } from '../../services/event.service';
 
 export class PaymentService {
     constructor(
@@ -64,6 +65,9 @@ export class PaymentService {
         // Lấy lại hóa đơn đã cập nhật trạng thái PAID từ DB để trả về
         const updatedPayment = await this.repository.findPaymentById(paymentId);
         if (!updatedPayment) throw new Error("PAYMENT_NOT_FOUND");
+
+        eventEmitter.emit('payment.success', updatedPayment);
+        
         return updatedPayment;
     }
 
