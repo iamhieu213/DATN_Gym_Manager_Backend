@@ -13,6 +13,7 @@ import equipmentRoutes from './modules/equipment/equipment.route';
 import dashboardRoutes from './modules/dashboard/dashboard.route';
 import branchRoutes from './modules/branch/branch.route'
 import bodyMetricRoutes from './modules/body-metrics/body-metrics.route'
+import notificationRoutes from './modules/notification/notification.route'
 
 import cookieParser from 'cookie-parser';
 const app = express();
@@ -49,4 +50,6 @@ app.use("/equipment", equipmentRoutes);
 app.use("/dashboard", dashboardRoutes);
 app.use("/branch", branchRoutes);
 app.use("/body-metrics", bodyMetricRoutes);
+app.use("/notifications", notificationRoutes);
+
 export default app;

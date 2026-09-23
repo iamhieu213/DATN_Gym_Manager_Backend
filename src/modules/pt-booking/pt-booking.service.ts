@@ -2,6 +2,7 @@ import { PtPackageRepository } from './../pt-package/pt-package.repository';
 import { PtBookingRepository } from './pt-booking.repository';
 import { HirePtDto, RequestCoachChangeDto, AdminDirectChangeCoachDto } from './pt-booking.dto';
 import { redisService } from '../../services/redis.service';
+import { eventEmitter } from '../../services/event.service';
 
 export class PtBookingService {
     constructor(
@@ -39,6 +40,14 @@ export class PtBookingService {
             dto.paymentMethod
         );
 
+        eventEmitter.emit('pt.hired', {
+            userId,
+            coachId: dto.coachId,
+            ptPackageId: dto.ptPackageId,
+            amount: payment.amount,
+            paymentId: payment.id
+        });
+
         return {
             assignmentId: assignment.id,
             paymentId: payment.id,
@@ -73,11 +82,11 @@ export class PtBookingService {
 
     // Xac nhan hoa don va kich hoat hop dong (ho tro ca thue moi va dong chenh lech)
     public async confirmPayment(
-        role : string, 
+        role: string,
         targetBranchId: number | null | undefined,
-        paymentId : number, 
-        transactionRef: string = "CASH_PAYMENT", 
-        gatewayResponse? : any) {
+        paymentId: number,
+        transactionRef: string = "CASH_PAYMENT",
+        gatewayResponse?: any) {
         if (role !== "ADMIN" && role !== "STAFF" && role !== "SYSTEM") {
             throw new Error("FORBIDDEN");
         }
@@ -93,13 +102,13 @@ export class PtBookingService {
 
         if (changeRequest) {
             // Day la hoa don dong tien chenh lech nang cap goi!
-            const newPtPackage = changeRequest.newPtPackageId 
+            const newPtPackage = changeRequest.newPtPackageId
                 ? await this.ptPackageRepository.findById(changeRequest.newPtPackageId)
                 : null;
-            const newSessions = newPtPackage 
-                ? newPtPackage.numberOfSessions 
+            const newSessions = newPtPackage
+                ? newPtPackage.numberOfSessions
                 : (payment.coachAssignment?.totalSessions ?? 12);
-            
+
             const currentAssignmentPrice = Number(payment.coachAssignment?.pricePaid ?? 0);
             const totalNewPrice = currentAssignmentPrice + Number(payment.amount);
 
@@ -139,7 +148,7 @@ export class PtBookingService {
         }
         const targetPackage = await this.ptPackageRepository.findById(targetPackageId);
         if (!targetPackage) throw new Error("PACKAGE_NOT_FOUND");
-        
+
         // TH 1: CHƯA THANH TOÁN (PENDING) -> Đổi trực tiếp luôn (không cần duyệt)
         if (assignment.status === "PENDING") {
             const { assignment: updatedAssignment, payment } = await this.repository.updateUnpaidAssignmentCoach(
@@ -179,6 +188,15 @@ export class PtBookingService {
                 dto.paymentMethod,
                 dto.reason || "Yêu cầu đổi PT/Gói tập"
             );
+
+            eventEmitter.emit('pt.change_requested', {
+                userId,
+                assignmentId,
+                requestId: request.id,
+                newCoachId: dto.newCoachId,
+                reason: dto.reason
+            });
+
             return {
                 isDirectChange: false,
                 needPayment: false,
@@ -198,6 +216,8 @@ export class PtBookingService {
         }
 
         if (assignment.status !== "PENDING") throw new Error("CANNOT_CANCEL_NON_PENDING_ASSIGNMENT");
+
+        eventEmitter.emit('pt.pending_cancel', { userId, assignmentId });
 
         return this.repository.cancelPendingAssigment(assignmentId, userId);
     }
@@ -230,17 +250,20 @@ export class PtBookingService {
 
 
     // Admin/Staff phe duyet yeu cau doi PT (co ho tro tao hoa don neu phai dong them)
-        // 1. Admin/Staff phê duyệt yêu cầu đổi PT (Không yêu cầu chọn phương thức thanh toán)
+    // 1. Admin/Staff phê duyệt yêu cầu đổi PT (Không yêu cầu chọn phương thức thanh toán)
     public async adminProcessChangeRequest(role: string, requestId: number, approve: boolean) {
         if (role !== 'ADMIN' && role !== 'STAFF') throw new Error("FORBIDDEN");
         const request = await this.repository.findChangeRequestById(requestId);
         if (!request || request.status !== "PENDING") {
             throw new Error("REQUEST_NOT_FOUND_OR_PROCESSED");
         }
-        
+
         // Nếu Admin Từ chối:
         if (!approve) {
             await this.repository.updateChangeRequestStatus(requestId, "REJECTED");
+
+            eventEmitter.emit('pt.change_processed', { requestId, approve: false });
+
             return { status: "REJECTED", message: "Đã từ chối yêu cầu đổi PT." };
         }
 
@@ -249,13 +272,13 @@ export class PtBookingService {
 
         // Trường hợp 1: Đổi ngang giá (Tiền chênh lệch === 0) -> Kích hoạt đổi PT ngay lập tức
         if (priceDifference === 0) {
-            const newPtPackage = request.newPtPackageId 
+            const newPtPackage = request.newPtPackageId
                 ? await this.ptPackageRepository.findById(request.newPtPackageId)
                 : null;
             const newSessions = newPtPackage ? newPtPackage.numberOfSessions : 12;
-            
+
             const assignment = await this.repository.findAssignmentById(request.assignmentId);
-            
+
             const resultAssignment = await this.repository.executeCoachAndPackageChange(
                 requestId,
                 newSessions,
@@ -266,10 +289,12 @@ export class PtBookingService {
             // Xóa cache cũ trên Redis của hội viên
             const redisKey = redisService.key("pt_assignment:active", resultAssignment.userId);
             await redisService.del(redisKey);
+            
+            eventEmitter.emit('pt.change_processed', { requestId, approve: true });
 
-            return { 
-                status: "APPROVED", 
-                message: `Phê duyệt thành công. PT đã được đổi trực tiếp do không chênh lệch giá.` 
+            return {
+                status: "APPROVED",
+                message: `Phê duyệt thành công. PT đã được đổi trực tiếp do không chênh lệch giá.`
             };
         }
 
@@ -289,11 +314,11 @@ export class PtBookingService {
             throw new Error("FORBIDDEN");
         }
 
-        const where : any = {};
-        if(status) where.status = status;
+        const where: any = {};
+        if (status) where.status = status;
 
-        if(role === 'STAFF'){
-            if(!actorBranchId)throw new Error("STAFF_BRANCH_REQUIRED");
+        if (role === 'STAFF') {
+            if (!actorBranchId) throw new Error("STAFF_BRANCH_REQUIRED");
             where.OR = [
                 { oldCoach: { user: { branchId: actorBranchId } } },
                 { newCoach: { user: { branchId: actorBranchId } } }
@@ -313,13 +338,13 @@ export class PtBookingService {
             throw new Error("FORBIDDEN");
         }
 
-        const where : any = {};
-        if(status) where.status = status;
+        const where: any = {};
+        if (status) where.status = status;
 
-        if(role === 'STAFF'){
-            if(!actorBranchId) throw new Error("STAFF_BRANCH_REQUIRED");
+        if (role === 'STAFF') {
+            if (!actorBranchId) throw new Error("STAFF_BRANCH_REQUIRED");
             where.coach = {
-                user : { branchId : actorBranchId } //Chi lay hop dong co PT thuoc chi nhanh cua Staff
+                user: { branchId: actorBranchId } //Chi lay hop dong co PT thuoc chi nhanh cua Staff
             }
         }
         return this.repository.findAllAssignments(where);

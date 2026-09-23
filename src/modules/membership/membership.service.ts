@@ -1,9 +1,10 @@
 import { MembershipRepository } from "./membership.repository";
 import { BuyMembershipDto, UpgradeMembershipDto, ListMembershipQueryDto } from "./membership.dto";
 import { redisService } from "../../services/redis.service";
+import { eventEmitter } from "../../services/event.service";
 
 export class MembershipsService {
-    constructor(private readonly repository: MembershipRepository) {}
+    constructor(private readonly repository: MembershipRepository) { }
 
     // 1. Đăng ký mua gói tập mới
     public async buyMembership(userId: number, dto: BuyMembershipDto) {
@@ -30,6 +31,16 @@ export class MembershipsService {
             method: dto.paymentMethod
         });
 
+        eventEmitter.emit('membership.registered', {
+            userId,
+            membershipId: membership.id,
+            planName: plan.name,
+            durationDays: plan.duration_days,
+            amount: payment.amount,
+            method: dto.paymentMethod
+        })
+
+
         return {
             membershipId: membership.id,
             paymentId: payment.id,
@@ -37,6 +48,8 @@ export class MembershipsService {
             method: payment.method,
             status: payment.status
         };
+
+
     }
 
     // 2. Nâng cấp gói tập (Logic khấu trừ tiền dư còn lại theo ngày dùng)
@@ -91,6 +104,14 @@ export class MembershipsService {
             startDate,
             endDate,
             amount: Math.round(amountToPay),
+            method: dto.paymentMethod
+        });
+
+        eventEmitter.emit('membership.upgraded', {
+            userId,
+            membershipId: membership.id,
+            newPlanName: newPlan.name,
+            amount: payment.amount,
             method: dto.paymentMethod
         });
 
@@ -192,6 +213,11 @@ export class MembershipsService {
         const redisKey = redisService.key("membership:active", membership.user_id);
         await redisService.del(redisKey);
 
+        eventEmitter.emit('membership.cancelled_by_admin', {
+            userId: membership.user_id,
+            planId: membership.plan_id
+        });
+
         return updated;
     }
 
@@ -199,7 +225,7 @@ export class MembershipsService {
     public async getActiveMembership(userId: number) {
         const redisKey = redisService.key("membership:active", userId);
         const cached = await redisService.get(redisKey);
-        
+
         if (cached) {
             return JSON.parse(cached); // Trả về luôn từ bộ nhớ RAM
         }

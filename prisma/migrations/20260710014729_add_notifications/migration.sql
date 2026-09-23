@@ -1,0 +1,26 @@
+-- CreateEnum
+CREATE TYPE "NotificationType" AS ENUM ('MEMBERSHIP_REGISTERED', 'MEMBERSHIP_ACTIVATED', 'MEMBERSHIP_EXPIRING', 'SESSION_SCHEDULED', 'SESSION_RESCHEDULE_REQUESTED', 'SESSION_RESCHEDULE_APPROVED', 'SESSION_RESCHEDULE_REJECTED', 'SESSION_CANCELLED', 'SESSION_REMINDER', 'PT_SESSIONS_RUNNING_LOW', 'COACH_CHANGE_REQUESTED', 'COACH_CHANGE_DECISION', 'PAYMENT_SUCCESS', 'PAYMENT_FAILED', 'PAYMENT_PENDING', 'NEW_USER_REGISTERED', 'EQUIPMENT_REPORTED_BROKEN', 'MAINTENANCE_TASK_ASSIGNED', 'SYSTEM_ANNOUNCEMENT');
+
+-- CreateTable
+CREATE TABLE "notifications" (
+    "id" SERIAL NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "title" VARCHAR(255) NOT NULL,
+    "content" TEXT NOT NULL,
+    "type" "NotificationType" NOT NULL,
+    "is_read" BOOLEAN NOT NULL DEFAULT false,
+    "reference_id" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "notifications_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "notifications_user_id_idx" ON "notifications"("user_id");
+
+-- CreateIndex
+CREATE INDEX "notifications_created_at_idx" ON "notifications"("created_at");
+
+-- AddForeignKey
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
