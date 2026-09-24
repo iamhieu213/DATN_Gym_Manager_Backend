@@ -14,15 +14,7 @@ const userListSelect = {
     address: true,
     emergencyContact: true,
     createdAt: true,
-    updatedAt: true,
-    branchId: true,
-    branch: {
-        select: {
-            id: true,
-            name: true,
-            code: true
-        }
-    }
+    updatedAt: true
 } satisfies Prisma.UserSelect;
 
 export type UserListRow = Prisma.UserGetPayload<{ select: typeof userListSelect }>;
@@ -36,27 +28,14 @@ export class UserRepository {
         role?: UserRole;
         status?: UserStatus;
         search?: string;
-        branchId?: number;
     }): Promise<{ rows: UserListRow[]; total: number }> {
         const where: Prisma.UserWhereInput = {};
 
         if (params.role) where.role = params.role;
-        if (params.branchId) where.branchId = params.branchId;
         if (params.status) {
             where.status = params.status;
         } else {
             where.status = { not: UserStatus.DELETED };
-        }
-
-        if (params.branchId) {
-            where.AND = [
-                {
-                    OR: [
-                        { branchId: params.branchId }, // Thuộc chi nhánh
-                        { role: UserRole.USER }        // Hoặc là hội viên tập tự do
-                    ]
-                }
-            ];
         }
 
         if (params.search?.trim()) {
@@ -122,17 +101,15 @@ export class UserRepository {
     }
 
     //Thong ke so luong nguoi dung 
-    public async getUserStats(branchId?: number): Promise<any> {
+    public async getUserStats(): Promise<any> {
         const now = new Date();
 
         //Lay moc thoi gian bat dau cua ngay hom nay
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         //Lay moc thoi gian bat dau cua thang nay
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        // Tạo cấu trúc where lọc theo chi nhánh nếu có
         const whereClause: Prisma.UserWhereInput = {
-            status: { not: 'DELETED' },
-            ...(branchId ? { branchId } : {})
+            status: { not: 'DELETED' }
         };
 
         const [roleGroups, statusGroups, totalCount, todayCount, monthCount] = await Promise.all([

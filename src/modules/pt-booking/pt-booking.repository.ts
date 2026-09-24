@@ -108,7 +108,7 @@ export class PtBookingRepository {
     }
 
     //Xac nhan da thanh toan va chuyen trang thai sang ACTIVE
-    public async activateAssignment(paymentId: number, transactionRef: string, durationDays: number, gatewayResponse?: any, actorBranchId?: number | null) {
+    public async activateAssignment(paymentId: number, transactionRef: string, durationDays: number, gatewayResponse?: any) {
         return this.prisma.$transaction(async (tx) => {
             const payment = await tx.payment.update({
                 where: { id: paymentId },
@@ -116,8 +116,7 @@ export class PtBookingRepository {
                     status: 'PAID',
                     paid_at: new Date(),
                     transaction_ref: transactionRef,
-                    gateway_response: gatewayResponse ?? null,
-                    ...(actorBranchId ? { branchId: actorBranchId } : {})
+                    gateway_response: gatewayResponse ?? null
                 }
             });
 
@@ -253,8 +252,7 @@ export class PtBookingRepository {
         newSessions: number,
         newPricePaid: number,
         transactionRef: string = "UPGRADE_ACTIVE",
-        gatewayResponse?: any,
-        actorBranchId?: number | null
+        gatewayResponse?: any
     ) {
         return this.prisma.$transaction(async (tx) => {
             const request = await tx.coachChangeRequest.findUnique({
@@ -298,8 +296,7 @@ export class PtBookingRepository {
                         status: "PAID",
                         paid_at: new Date(),
                         transaction_ref: transactionRef,
-                        gateway_response: gatewayResponse ?? null,
-                        ...(actorBranchId ? { branchId: actorBranchId } : {})
+                        gateway_response: gatewayResponse ?? null
                     }
                 });
             }
@@ -446,8 +443,7 @@ export class PtBookingRepository {
                         user: {
                             select: {
                                 name: true,
-                                phone: true,
-                                branchId : true
+                                phone: true
                             }
                         }
                     }

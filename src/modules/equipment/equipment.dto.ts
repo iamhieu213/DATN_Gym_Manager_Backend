@@ -6,7 +6,6 @@ export interface CreateEquipmentDto {
     quantity: number;      // Số lượng cần tạo hàng loạt
     purchaseDate?: string;  // Định dạng YYYY-MM-DD
     note?: string;
-    branchId: number;
 }
 
 export interface UpdateEquipmentDto {
@@ -31,7 +30,6 @@ export interface ListQueryEquipmentDetailDto {
     status?: EquipmentStatus;
     page?: string;
     limit?: string;
-    branchId? : string;
 }
 
 export interface CreateMaintenanceTaskDto {

@@ -60,9 +60,10 @@ Khi lỗi, response thường là:
 - [Coach](./coach.md)
 - [PT Package](./pt-package.md)
 - [PT Booking](./pt-booking.md)
-- [Branch](./branch.md)
 - [Dashboard](./dashboard.md)
 - [Equipment](./equipment.md)
+- [Body Metrics](./body-metrics.md)
+- [Notification](./notification.md)
 
 ## Endpoint ngoài module
 

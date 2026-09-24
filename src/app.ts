@@ -11,7 +11,6 @@ import ptBooking from './modules/pt-booking/pt-booking.route'
 import paymentRoutes from './modules/payment/payment.route';
 import equipmentRoutes from './modules/equipment/equipment.route';
 import dashboardRoutes from './modules/dashboard/dashboard.route';
-import branchRoutes from './modules/branch/branch.route'
 import bodyMetricRoutes from './modules/body-metrics/body-metrics.route'
 import notificationRoutes from './modules/notification/notification.route'
 
@@ -48,7 +47,6 @@ app.use("/pt-booking", ptBooking);
 app.use("/payments", paymentRoutes);
 app.use("/equipment", equipmentRoutes);
 app.use("/dashboard", dashboardRoutes);
-app.use("/branch", branchRoutes);
 app.use("/body-metrics", bodyMetricRoutes);
 app.use("/notifications", notificationRoutes);
 

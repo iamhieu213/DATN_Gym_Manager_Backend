@@ -126,7 +126,7 @@ export class MembershipsService {
     }
 
     // 3. Xác nhận đã đóng tiền & Kích hoạt gói tập + Cập nhật Redis Cache
-    public async confirmPayment(role: string, actorBranchId: number | null | undefined, paymentId: number, transactionRef?: string, gatewayResponse?: any) {
+    public async confirmPayment(role: string, paymentId: number, transactionRef?: string, gatewayResponse?: any) {
         if (role !== 'ADMIN' && role !== 'STAFF') {
             throw new Error("FORBIDDEN");
         }
@@ -144,8 +144,7 @@ export class MembershipsService {
             const { payment: updatedPayment, membership } = await this.repository.activateMembershipPayment(
                 paymentId,
                 transactionRef ?? `CASH_CONFIRMED_BY_${role}`,
-                gatewayResponse ?? { confirmedBy: role },
-                role === 'STAFF' ? actorBranchId : null
+                gatewayResponse ?? { confirmedBy: role }
             );
 
             // --- LƯU THÔNG TIN GÓI TẬP ACTIVE LÊN REDIS (Để điểm danh/check-in) ---
@@ -221,32 +220,14 @@ export class MembershipsService {
         return updated;
     }
 
-    // 5. Xem gói active (Ưu tiên đọc từ Redis trước cho nhanh)
+    // 5. Xem gói active của hội viên
+    // Luôn đọc từ DB (không đọc từ Redis): key `membership:active:<userId>` được
+    // check-in và confirmPayment ghi ở dạng RÚT GỌN ({membershipId, planId, planName,
+    // startDate, endDate}) chỉ để phục vụ điểm danh. Nếu API này đọc chung key đó thì
+    // response sẽ đổi dạng (mất `status`, `plan`, snake_case) tuỳ ai làm nóng cache trước.
+    // Truy vấn theo user_id có chỉ mục nên rất nhẹ; response luôn cùng 1 dạng đầy đủ.
     public async getActiveMembership(userId: number) {
-        const redisKey = redisService.key("membership:active", userId);
-        const cached = await redisService.get(redisKey);
-
-        if (cached) {
-            return JSON.parse(cached); // Trả về luôn từ bộ nhớ RAM
-        }
-
-        const activeSub = await this.repository.findActiveMembershipByUserId(userId);
-        if (!activeSub) return null;
-
-        // Lưu bù vào Redis cache nếu chưa có sẵn
-        const ttlInSeconds = Math.floor((activeSub.end_date.getTime() - Date.now()) / 1000);
-        if (ttlInSeconds > 0) {
-            const cacheValue = {
-                membershipId: activeSub.id,
-                planId: activeSub.plan_id,
-                planName: activeSub.plan.name,
-                startDate: activeSub.start_date,
-                endDate: activeSub.end_date
-            };
-            await redisService.set(redisKey, JSON.stringify(cacheValue), ttlInSeconds);
-        }
-
-        return activeSub;
+        return this.repository.findActiveMembershipByUserId(userId);
     }
 
     public async getMyHistory(userId: number) {

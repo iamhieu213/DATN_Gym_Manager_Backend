@@ -141,7 +141,7 @@ export class MembershipRepository {
     }
 
     // TRANSACTION: Kích hoạt gói tập khi đã đóng tiền thành công
-    async activateMembershipPayment(paymentId: number, transactionRef: string, gatewayResponse: any, actorBranchId? : number | null) {
+    async activateMembershipPayment(paymentId: number, transactionRef: string, gatewayResponse: any) {
         return this.prisma.$transaction(async (tx) => {
             const payment = await tx.payment.update({
                 where: { id: paymentId },
@@ -149,8 +149,7 @@ export class MembershipRepository {
                     status: 'PAID',
                     paid_at: new Date(),
                     transaction_ref: transactionRef,
-                    gateway_response: gatewayResponse,
-                    ...(actorBranchId ? { branchId : actorBranchId } : {})
+                    gateway_response: gatewayResponse
                 }
             });
 

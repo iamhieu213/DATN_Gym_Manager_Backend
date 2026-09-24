@@ -9,8 +9,8 @@ const notificationService = new NotificationService(notificationRepository);
 
 export const eventEmitter = new EventEmitter();
 
-// Hàm tiện ích: Lấy toàn bộ ADMIN + STAFF thuộc chi nhánh chỉ định
-async function getStaffAndAdmins(branchId?: number | null) {
+// Hàm tiện ích: Lấy toàn bộ ADMIN + STAFF đang hoạt động để gửi thông báo
+async function getStaffAndAdmins() {
   return prisma.user.findMany({
     where: {
       status: 'ACTIVE',
@@ -18,11 +18,8 @@ async function getStaffAndAdmins(branchId?: number | null) {
         // Điều kiện 1: Nếu là ADMIN thì lấy luôn (vì ADMIN nhận thông báo toàn hệ thống)
         { role: 'ADMIN' },
         
-        // Điều kiện 2: Nếu là STAFF thì phải thuộc đúng chi nhánh được truyền vào
-        {
-          role: 'STAFF',
-          ...(branchId ? { branchId } : {})
-        }
+        // Điều kiện 2: STAFF cũng nhận thông báo
+        { role: 'STAFF' }
       ]
     }
   });
@@ -45,9 +42,9 @@ eventEmitter.on('membership.registered', async (data) => {
     referenceId: String(data.membershipId)
   });
 
-  // Nếu chọn đóng tiền mặt, báo cho Staff/Admin chi nhánh để thu tiền
+  // Nếu chọn đóng tiền mặt, báo cho Staff/Admin để thu tiền
   if (data.method === 'CASH') {
-    const staffs = await getStaffAndAdmins(buyer?.branchId);
+    const staffs = await getStaffAndAdmins();
     for (const staff of staffs) {
       await notificationService.createNotification({
         userId: staff.id,
@@ -75,7 +72,7 @@ eventEmitter.on('membership.upgraded', async (data) => {
 
   // Nếu đóng tiền mặt tại quầy
   if (data.method === 'CASH') {
-    const staffs = await getStaffAndAdmins(buyer?.branchId);
+    const staffs = await getStaffAndAdmins();
     for (const staff of staffs) {
       await notificationService.createNotification({
         userId: staff.id,
@@ -116,8 +113,8 @@ eventEmitter.on('payment.success', async (payment) => {
     referenceId: String(payment.id)
   });
 
-  // Thông báo cho tất cả Staff/Admin quản lý tại chi nhánh đó
-  const staffs = await getStaffAndAdmins(payment.branchId);
+  // Thông báo cho tất cả Staff/Admin
+  const staffs = await getStaffAndAdmins();
   for (const staff of staffs) {
     await notificationService.createNotification({
       userId: staff.id,
@@ -147,8 +144,8 @@ eventEmitter.on('pt.hired', async (data) => {
     referenceId: String(data.paymentId)
   });
 
-  // Gửi cho lễ tân chi nhánh thu tiền nếu chọn CASH
-  const staffs = await getStaffAndAdmins(buyer?.branchId);
+  // Gửi cho lễ tân thu tiền nếu chọn CASH
+  const staffs = await getStaffAndAdmins();
   for (const staff of staffs) {
     await notificationService.createNotification({
       userId: staff.id,
@@ -164,8 +161,8 @@ eventEmitter.on('pt.hired', async (data) => {
 eventEmitter.on('pt.change_requested', async (data) => {
   const member = await prisma.user.findUnique({ where: { id: data.userId } });
   
-  // Gửi thông báo chờ duyệt cho toàn bộ Staff/Admin tại chi nhánh đó
-  const staffs = await getStaffAndAdmins(member?.branchId);
+  // Gửi thông báo chờ duyệt cho toàn bộ Staff/Admin
+  const staffs = await getStaffAndAdmins();
   for (const staff of staffs) {
     await notificationService.createNotification({
       userId: staff.id,
@@ -230,8 +227,8 @@ eventEmitter.on('pt.change_processed', async (data) => {
 eventEmitter.on('pt.pending_cancel', async (data) => {
   const buyer = await prisma.user.findUnique({ where: { id: data.userId } });
 
-  // Thông báo cho Staff/Admin chi nhánh biết để cập nhật tình hình
-  const staffs = await getStaffAndAdmins(buyer?.branchId);
+  // Thông báo cho Staff/Admin biết để cập nhật tình hình
+  const staffs = await getStaffAndAdmins();
   for (const staff of staffs) {
     await notificationService.createNotification({
       userId: staff.id,

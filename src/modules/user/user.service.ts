@@ -36,8 +36,6 @@ function mapRow(row: UserListRow): UserListItemDto {
         emergencyContact: row.emergencyContact,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
-        branchId: row.branchId,
-        branch: row.branch,
     }
 }
 
@@ -52,7 +50,7 @@ export class UserService {
     ) { }
 
     //Hien thi danh sach nguoi dung 
-    public async getAllUsers(actorRole: string, actorBranchId: number | null | undefined, query: ListUserQueryDto): Promise<PaginatedUserListDto> {
+    public async getAllUsers(actorRole: string, query: ListUserQueryDto): Promise<PaginatedUserListDto> {
         const allowed: UserRole[] = [UserRole.ADMIN, UserRole.STAFF];
 
         if (!allowed.includes(actorRole as UserRole)) {
@@ -68,13 +66,6 @@ export class UserService {
         const limit = Math.min(Math.max(1, limitRaw), MAX_LIMIT);
         const skip = (page - 1) * limit;
 
-        let targetBranchId: number | undefined = undefined;
-        if (actorRole === UserRole.STAFF) {
-            targetBranchId = actorBranchId ?? undefined;
-        } else if (actorRole === UserRole.ADMIN && query.branchId) {
-            targetBranchId = Number(query.branchId);
-        }
-
         const { rows, total } = await this.userRepository.findManyPaginated({
             skip,
             take: limit,
@@ -82,8 +73,7 @@ export class UserService {
             ...(query.status !== undefined ? { status: query.status } : {}),
             ...(query.search !== undefined && query.search !== ""
                 ? { search: query.search }
-                : {}),
-            ...(targetBranchId !== undefined ? { branchId: targetBranchId } : {})
+                : {})
         });
 
         const totalPages = Math.ceil(total / limit) || 0;
@@ -197,18 +187,6 @@ export class UserService {
             }
         }
 
-        const targetRole = dto.role || UserRole.USER;
-
-        //Nhan vien va PT bat buoc phai co chi nhanh lam viec
-        if ((targetRole === UserRole.STAFF || targetRole === UserRole.COACH) && !dto.branchId) {
-            throw new Error("BRANCH_REQUIRED_FOR_STAFF_COACH");
-        }
-
-        //Neu tao tai khoan la ADMIN hoac USER thi khong can branchId
-        let finalBranchId: number | undefined = dto.branchId;
-        if (targetRole === UserRole.ADMIN || targetRole === UserRole.USER) {
-            finalBranchId = undefined;
-        }
         // Sử dụng mật khẩu được gửi lên, hoặc tự gán mật khẩu mặc định nếu trống
         const password = dto.password || "GymManager@123";
         const passwordHash = await bcrypt.hash(password, 10);
@@ -224,9 +202,7 @@ export class UserService {
             gender: dto.gender || null,
             citizenId: dto.citizenId ? dto.citizenId.trim() : null,
             address: dto.address || null,
-            emergencyContact: dto.emergencyContact || null,
-            ...(finalBranchId ? { branch: { connect: { id: finalBranchId } } } : {}),
-
+            emergencyContact: dto.emergencyContact || null
         });
 
         if (newUser.role === UserRole.COACH) {
@@ -295,21 +271,6 @@ export class UserService {
         if (dto.gender !== undefined) updateData.gender = dto.gender;
         if (dto.address !== undefined) updateData.address = dto.address;
         if (dto.emergencyContact !== undefined) updateData.emergencyContact = dto.emergencyContact;
-
-        const targetRole = dto.role !== undefined ? dto.role : targetUser.role;
-        const targetBranchId = dto.branchId !== undefined ? dto.branchId : targetUser.branchId;
-        if ((targetRole === UserRole.STAFF || targetRole === UserRole.COACH) && !targetBranchId) {
-            throw new Error("BRANCH_REQUIRED_FOR_STAFF_COACH");
-        }
-        if (dto.branchId !== undefined) {
-            if (actorRole === UserRole.ADMIN) {
-                updateData.branch = dto.branchId
-                    ? { connect: { id: dto.branchId } }
-                    : { disconnect: true };
-            } else {
-                throw new Error("FORBIDDEN");
-            }
-        }
 
         const updated = await this.userRepository.update(targetId, updateData);
 
@@ -390,13 +351,11 @@ export class UserService {
     }
 
     // 9.Api dashboard thong ke so luong nguoi dung theo tung role
-    public async getUserStats(actorRole: string, actorBranchId? : number | null): Promise<UserStatsDto> {
+    public async getUserStats(actorRole: string): Promise<UserStatsDto> {
         const allowed: UserRole[] = [UserRole.ADMIN, UserRole.STAFF];
         if (!allowed.includes(actorRole as UserRole)) {
             throw new Error("FORBIDDEN");
         }
-        const targetBranchId = actorRole === UserRole.STAFF ? (actorBranchId ?? undefined) : undefined;
-
-        return await this.userRepository.getUserStats(targetBranchId);
+        return await this.userRepository.getUserStats();
     }
 }

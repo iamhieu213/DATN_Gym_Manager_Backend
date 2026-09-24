@@ -21,30 +21,10 @@ async function main() {
     await prisma.checkIn.deleteMany({});
     await prisma.equipment.deleteMany({});
     await prisma.user.deleteMany({});
-    await prisma.gymBranch.deleteMany({});
 
     console.log('🔑 Mã hóa mật khẩu cho dữ liệu mẫu...');
     const defaultPassword = 'GymManager@123';
     const passwordHash = await bcrypt.hash(defaultPassword, 10);
-
-    console.log('🏛️ Tạo các chi nhánh phòng gym mẫu...');
-    const branch1 = await prisma.gymBranch.create({
-        data: {
-            name: 'Chi nhánh Quận 1',
-            code: 'CN_Q1',
-            address: '123 Đường Nguyễn Huệ, Quận 1, TP. HCM',
-            phone: '02812345678'
-        }
-    });
-
-    const branch2 = await prisma.gymBranch.create({
-        data: {
-            name: 'Chi nhánh Tân Bình',
-            code: 'CN_TB',
-            address: '456 Đường Cộng Hòa, Quận Tân Bình, TP. HCM',
-            phone: '02887654321'
-        }
-    });
 
     console.log('👤 Tạo tài khoản Quản trị & Nhân viên mẫu...');
     const admin = await prisma.user.create({
@@ -69,8 +49,7 @@ async function main() {
             status: UserStatus.ACTIVE,
             phone: '0900000002',
             gender: Gender.FEMALE,
-            avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150',
-            branchId: branch1.id
+            avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150'
         }
     });
 
@@ -83,8 +62,7 @@ async function main() {
             status: UserStatus.ACTIVE,
             phone: '0900000003',
             gender: Gender.MALE,
-            avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150',
-            branchId: branch2.id
+            avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150'
         }
     });
 
@@ -99,8 +77,7 @@ async function main() {
                 status: UserStatus.ACTIVE,
                 phone: '0911222333',
                 gender: Gender.MALE,
-                avatarUrl: 'https://images.unsplash.com/photo-1567013127542-490d757e51fc?w=150',
-                branchId: branch1.id
+                avatarUrl: 'https://images.unsplash.com/photo-1567013127542-490d757e51fc?w=150'
             }
         }),
         prisma.user.create({
@@ -112,8 +89,7 @@ async function main() {
                 status: UserStatus.ACTIVE,
                 phone: '0922333444',
                 gender: Gender.FEMALE,
-                avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
-                branchId: branch2.id
+                avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150'
             }
         }),
         prisma.user.create({
@@ -125,8 +101,7 @@ async function main() {
                 status: UserStatus.ACTIVE,
                 phone: '0933444555',
                 gender: Gender.MALE,
-                avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-                branchId: branch1.id
+                avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150'
             }
         }),
         prisma.user.create({
@@ -138,8 +113,7 @@ async function main() {
                 status: UserStatus.ACTIVE,
                 phone: '0944555666',
                 gender: Gender.FEMALE,
-                avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-                branchId: branch2.id
+                avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
             }
         }),
         prisma.user.create({
@@ -151,8 +125,7 @@ async function main() {
                 status: UserStatus.ACTIVE,
                 phone: '0955666777',
                 gender: Gender.MALE,
-                avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-                branchId: branch1.id
+                avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150'
             }
         }),
         prisma.user.create({
@@ -164,8 +137,7 @@ async function main() {
                 status: UserStatus.ACTIVE,
                 phone: '0966777888',
                 gender: Gender.FEMALE,
-                avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
-                branchId: branch2.id
+                avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150'
             }
         })
     ]);
@@ -297,7 +269,6 @@ async function main() {
                 status: UserStatus.ACTIVE,
                 phone: m.phone,
                 gender: m.gender,
-                branchId: idx % 2 === 0 ? branch1.id : branch2.id,
                 // Tạo ngẫu nhiên ngày đăng ký trong vòng 120 ngày qua để phân bổ doanh thu/hội viên
                 createdAt: new Date(now.getTime() - (idx * 2 + Math.random() * 2) * 24 * 60 * 60 * 1000)
             }
@@ -537,8 +508,7 @@ async function main() {
                     status: PaymentStatus.PAID,
                     transaction_ref: 'HST' + year + Math.floor(Math.random() * 1000000),
                     paid_at: payDate,
-                    created_at: payDate,
-                    branchId: randUser.branchId
+                    created_at: payDate
                 }
             });
             currentRevSum += amount;
@@ -589,8 +559,7 @@ async function main() {
                     status: PaymentStatus.PAID,
                     transaction_ref: 'MTH' + currentYear + 'M' + month + 'N' + Math.floor(Math.random() * 100000),
                     paid_at: payDate,
-                    created_at: payDate,
-                    branchId: randUser.branchId
+                    created_at: payDate
                 }
             });
             currentRevSum += amount;
@@ -615,8 +584,7 @@ async function main() {
                 amount: item.amount,
                 method: PaymentMethod.MOMO,
                 status: item.status,
-                created_at: payDate,
-                branchId: item.user.branchId
+                created_at: payDate
             }
         });
     }
@@ -653,8 +621,7 @@ async function main() {
                     status: PaymentStatus.PAID,
                     transaction_ref: 'DAY' + i + 'N' + Math.floor(Math.random() * 100000),
                     paid_at: payDate,
-                    created_at: payDate,
-                    branchId: randUser.branchId
+                    created_at: payDate
                 }
             });
             daySum += plan.price.toNumber();
@@ -683,10 +650,7 @@ async function main() {
     ];
 
     await prisma.equipment.createMany({
-        data: equipmentsData.map((eq, idx) => ({
-            ...eq,
-            branchId: idx % 2 === 0 ? branch1.id : branch2.id
-        }))
+        data: equipmentsData
     });
 
     console.log('📍 Tạo dữ liệu điểm danh quét mã CheckIn (60 lượt)...');
@@ -709,8 +673,7 @@ async function main() {
         await prisma.checkIn.create({
             data: {
                 userId: member.id,
-                checkInAt,
-                branchId: member.branchId ?? branch1.id
+                checkInAt
             }
         });
     }
@@ -773,15 +736,13 @@ async function main() {
         scheduledAt.setDate(now.getDate() + 1 + (i % 2));
         scheduledAt.setHours(8 + (i * 2), 30, 0, 0);
 
-        const coachUser = coachUsers[i % coaches.length]!;
         await prisma.groupClass.create({
             data: {
                 coachId: coaches[i % coaches.length]!.id,
                 name: classNames[i]!,
                 scheduledAt,
                 durationMinutes: 60,
-                status: GroupClassStatus.SCHEDULED,
-                branchId: coachUser.branchId ?? branch1.id
+                status: GroupClassStatus.SCHEDULED
             }
         });
     }

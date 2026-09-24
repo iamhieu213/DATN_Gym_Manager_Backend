@@ -24,11 +24,10 @@ export class CheckInRepository {
     }
 
     //Luu ban ghi checkin moi
-    async createCheckIn(userId : number, branchId : number) {
+    async createCheckIn(userId : number) {
          return this.prisma.checkIn.create({
             data : {
                 userId : userId,
-                branchId : branchId,
             },
             include : {
                 user : {

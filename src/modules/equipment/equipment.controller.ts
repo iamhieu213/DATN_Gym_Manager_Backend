@@ -41,12 +41,9 @@ export const createEquipment = async (req: AuthRequest, res: Response) => {
 };
 export const getEquipmentSummary = async (req: AuthRequest, res: Response) => {
     try {
-        const role = req.user?.role || 'USER';
-        const actorBranchId = req.user?.branchId;
         const search = req.query.search as string;
-        const branchId = req.query.branchId as string;
 
-        const data = await service.getEquipmentSummary(role, actorBranchId, { search, branchId });
+        const data = await service.getEquipmentSummary({ search });
         res.status(200).json({ success: true, data });
     } catch (e: any) {
         console.error('Error in getEquipmentSummary:', e);
@@ -59,14 +56,13 @@ export const getEquipmentSummary = async (req: AuthRequest, res: Response) => {
 export const getEquipmentGroupDetails = async (req: AuthRequest, res: Response) => {
     try {
         const role = req.user?.role || 'USER';
-        const actorBranchId = req.user?.branchId;
         if (!role) throw new Error('FORBIDDEN');
         const name = req.query.name as string;
 
         // Nhận các query parameters và ép kiểu sang interface DTO của bạn
         const query = req.query as unknown as ListQueryEquipmentDetailDto;
         // ĐÃ SỬA: Truyền đủ 3 tham số (role, name, query) theo đúng thứ tự thiết lập ở Service
-        const result = await service.getEquipmentGroupDetails(role, actorBranchId, name, query);
+        const result = await service.getEquipmentGroupDetails(role, name, query);
         res.status(200).json({
             success: true,
             data: result.data,
@@ -85,7 +81,7 @@ export const updateEquipment = async (req: AuthRequest, res: Response) => {
         if (!role) throw new Error('FORBIDDEN');
         const id = parseInt(req.params.id as string, 10);
         if (isNaN(id)) throw new Error('BAD_REQUEST');
-        const data = await service.updateEquipment(role, id, req.user?.branchId, req.body);
+        const data = await service.updateEquipment(role, id, req.body);
         res.status(200).json({ success: true, message: 'Cập nhật thiết bị thành công.', data });
     } catch (e: any) {
         console.error('Error in updateEquipment:', e);
@@ -97,7 +93,7 @@ export const bulkUpdateEquipment = async (req: AuthRequest, res: Response) => {
     try {
         const role = req.user?.role;
         if (!role) throw new Error('FORBIDDEN');
-        const count = await service.bulkUpdateEquipment(role, req.user?.branchId, req.body);
+        const count = await service.bulkUpdateEquipment(role, req.body);
         res.status(200).json({ success: true, message: `Đã cập nhật ${count} thiết bị thành công.` });
     } catch (e: any) {
         console.error('Error in bulkUpdateEquipment:', e);
@@ -111,7 +107,7 @@ export const deleteEquipment = async (req: AuthRequest, res: Response) => {
         if (!role) throw new Error('FORBIDDEN');
         const id = parseInt(req.params.id as string, 10);
         if (isNaN(id)) throw new Error('BAD_REQUEST');
-        await service.deleteEquipment(role, req.user?.branchId, id);
+        await service.deleteEquipment(role, id);
         res.status(200).json({ success: true, message: 'Xóa thiết bị thành công.' });
     } catch (e: any) {
         console.error('Error in deleteEquipment:', e);
@@ -138,8 +134,7 @@ export const getEquipmentStats = async (req: AuthRequest, res: Response) => {
     try {
         const role = req.user?.role;
         if (!role) throw new Error('FORBIDDEN');
-        const queryBranchId = req.query.branchId as string;
-        const data = await service.getEquipmentStats(role, req.user?.branchId, queryBranchId);
+        const data = await service.getEquipmentStats(role);
         res.status(200).json({ success: true, data });
     } catch (e: any) {
         console.error('Error in getEquipmentStats:', e);
@@ -156,9 +151,8 @@ export const getMaintenanceTasks = async (req: AuthRequest, res: Response) => {
 
         const month = req.query.month ? parseInt(req.query.month as string, 10) : undefined;
         const year = req.query.year ? parseInt(req.query.year as string, 10) : undefined;
-        const queryBranchId = req.query.branchId as string;
 
-        const data = await service.getMaintenanceTasks(role, req.user?.branchId, month, year, queryBranchId);
+        const data = await service.getMaintenanceTasks(month, year);
         res.status(200).json({ success: true, data });
     } catch (e: any) {
         console.error('Error in getMaintenanceTasks:', e);
