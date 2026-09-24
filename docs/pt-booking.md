@@ -174,9 +174,7 @@ Ban quản trị duyệt hoặc từ chối yêu cầu đổi PT của hội vi�
 Ban quản trị xem danh sách yêu cầu đổi PT.
 
 - **Quyền hạn:** `ADMIN`, `STAFF`.
-  - **Phân vùng dữ liệu:**
-    - Tài khoản `STAFF`: Tự động giới hạn chỉ xem các yêu cầu đổi PT có liên quan tới chi nhánh của mình (nghĩa là chi nhánh của PT cũ hoặc chi nhánh của PT mới trùng với chi nhánh của STAFF đó). Nếu STAFF chưa được gán chi nhánh, trả lỗi `400 STAFF_BRANCH_REQUIRED`.
-    - Tài khoản `ADMIN`: Xem toàn bộ yêu cầu trong hệ thống.
+  - STAFF và ADMIN đều xem toàn bộ yêu cầu đổi PT trong hệ thống.
 - **Query Parameters:**
   - `status` (optional): Lọc theo trạng thái yêu cầu (`PENDING`, `APPROVED`, `REJECTED`, `AWAITING_PAYMENT`).
 - **Thành công `200`:** `data` là mảng danh sách yêu cầu đổi PT.
@@ -188,9 +186,7 @@ Ban quản trị xem danh sách yêu cầu đổi PT.
 Ban quản trị xem danh sách toàn bộ hợp đồng thuê PT.
 
 - **Quyền hạn:** `ADMIN`, `STAFF`.
-  - **Phân vùng dữ liệu:**
-    - Tài khoản `STAFF`: Chỉ được xem các hợp đồng thuê PT mà huấn luyện viên dạy lớp đó thuộc **chi nhánh của STAFF**. Nếu STAFF chưa được gán chi nhánh, trả lỗi `400 STAFF_BRANCH_REQUIRED`.
-    - Tài khoản `ADMIN`: Xem toàn bộ danh sách hợp đồng thuê PT.
+  - STAFF và ADMIN đều xem toàn bộ danh sách hợp đồng thuê PT.
 - **Query Parameters:**
   - `status` (optional): Lọc theo trạng thái hợp đồng.
 - **Thành công `200`:** `data` là mảng danh sách hợp đồng thuê PT.

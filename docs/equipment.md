@@ -26,7 +26,6 @@ Tất cả API trong module này đều yêu cầu đăng nhập bằng Bearer t
   "purchaseDate": "2026-06-01T00:00:00.000Z",
   "lastMaintenanceDate": null,
   "note": null,
-  "branchId": 1,
   "createdAt": "2026-06-01T00:00:00.000Z",
   "updatedAt": "2026-06-01T00:00:00.000Z"
 }
@@ -46,11 +45,9 @@ Tạo mới hàng loạt thiết bị phòng gym, mã thiết bị tự động 
     "baseCode": "EQ-TM",
     "quantity": 3,
     "purchaseDate": "2026-06-01",
-    "note": "Lô nhập tháng 6",
-    "branchId": 1
+    "note": "Lô nhập tháng 6"
   }
   ```
-  - **Lưu ý:** `branchId` là **bắt buộc** để xác định chi nhánh đặt thiết bị.
 - **Thành công `201`:**
   ```json
   {
@@ -59,7 +56,6 @@ Tạo mới hàng loạt thiết bị phòng gym, mã thiết bị tự động 
   }
   ```
 - **Lỗi thường gặp:**
-  - `BAD_REQUEST` (400): Không truyền `branchId`.
   - `INVALID_QUANTITY` (400): Số lượng `quantity` nhỏ hơn hoặc bằng 0.
   - `FORBIDDEN` (403): Không phải ADMIN.
 
@@ -70,12 +66,9 @@ Tạo mới hàng loạt thiết bị phòng gym, mã thiết bị tự động 
 Xem danh sách tổng kết số lượng thiết bị theo nhóm tên (phục vụ hiển thị danh sách dạng thẻ tổng quát).
 
 - **Quyền hạn:** Mọi tài khoản đã đăng nhập.
-  - **Phân vùng dữ liệu:**
-    - Tài khoản `STAFF`: Tự động giới hạn xem thiết bị tại **chi nhánh của STAFF đó**.
-    - Tài khoản `ADMIN`: Mặc định xem toàn bộ hoặc lọc theo `branchId` gửi kèm trong query.
+  - Mọi tài khoản đăng nhập đều xem được toàn bộ thiết bị của phòng tập.
 - **Query Parameters:**
   - `search` (optional): Lọc tìm kiếm theo tên thiết bị.
-  - `branchId` (optional): Lọc theo ID chi nhánh (chỉ ADMIN có quyền dùng để lọc chi nhánh khác).
 - **Thành công `200`:**
   ```json
   {
@@ -99,9 +92,7 @@ Xem danh sách tổng kết số lượng thiết bị theo nhóm tên (phục v
 Xem danh sách chi tiết từng máy cụ thể trong một nhóm thiết bị hoặc hiển thị toàn bộ sảnh.
 
 - **Quyền hạn:** Mọi tài khoản đã đăng nhập.
-  - **Phân vùng dữ liệu:**
-    - Tài khoản `STAFF`: Tự động giới hạn thiết bị của **chi nhánh của STAFF đó**.
-    - Tài khoản `ADMIN`: Xem toàn hệ thống hoặc lọc theo `branchId` trong query.
+  - Mọi tài khoản đăng nhập đều xem được toàn bộ thiết bị của phòng tập.
   - **Cơ chế ẩn thông tin nhạy cảm:**
     - Nếu là `USER` hoặc `COACH`: Hệ thống chỉ trả về các trường cơ bản: `id`, `name`, `code`, `status`.
     - Nếu là `ADMIN` hoặc `STAFF`: Trả về toàn bộ các trường thông tin (ngày mua, lịch sử bảo trì, ghi chú...).
@@ -111,7 +102,6 @@ Xem danh sách chi tiết từng máy cụ thể trong một nhóm thiết bị 
   - `limit` (optional): Số lượng bản ghi/trang, mặc định `10`.
   - `status` (optional): Lọc theo `EquipmentStatus`.
   - `search` (optional): Tìm kiếm theo mã thiết bị (`code`).
-  - `branchId` (optional): Lọc theo ID chi nhánh (chỉ ADMIN có quyền lọc chi nhánh khác).
 
 - **Thành công `200` (Phản hồi cho ADMIN/STAFF):**
   ```json
@@ -125,8 +115,7 @@ Xem danh sách chi tiết từng máy cụ thể trong một nhóm thiết bị 
         "status": "OPERATIONAL",
         "purchaseDate": "2026-06-01T00:00:00.000Z",
         "lastMaintenanceDate": "2026-06-20T00:00:00.000Z",
-        "note": "Lô nhập tháng 6",
-        "branchId": 1
+        "note": "Lô nhập tháng 6"
       }
     ],
     "meta": {
@@ -145,7 +134,6 @@ Xem danh sách chi tiết từng máy cụ thể trong một nhóm thiết bị 
 Cập nhật thông tin/trạng thái hàng loạt cho nhiều thiết bị theo danh sách ID.
 
 - **Quyền hạn:** `ADMIN`, `STAFF`.
-  - **Phân quyền chi nhánh:** Tài khoản `STAFF` chỉ có thể cập nhật các thiết bị thuộc **chi nhánh của mình**. Nếu danh sách gửi lên chứa bất kỳ thiết bị nào của chi nhánh khác, hệ thống sẽ trả lỗi `FORBIDDEN` (403).
 - **Request Body:**
   ```json
   {
@@ -169,7 +157,7 @@ Cập nhật thông tin/trạng thái hàng loạt cho nhiều thiết bị theo
 
 Xóa hàng loạt thiết bị phòng gym ra khỏi hệ thống theo danh sách ID.
 
-- **Quyền hạn:** `ADMIN`, `STAFF`. (STAFF chỉ được xóa thiết bị tại chi nhánh của mình).
+- **Quyền hạn:** `ADMIN`, `STAFF`..
 - **Request Body:**
   ```json
   {
@@ -190,7 +178,7 @@ Xóa hàng loạt thiết bị phòng gym ra khỏi hệ thống theo danh sách
 
 Cập nhật trạng thái hoặc ghi chú cho một thiết bị cụ thể.
 
-- **Quyền hạn:** `ADMIN`, `STAFF`. (STAFF chỉ được cập nhật thiết bị tại chi nhánh của mình).
+- **Quyền hạn:** `ADMIN`, `STAFF`..
 - **Request Body:**
   ```json
   {
@@ -207,7 +195,7 @@ Cập nhật trạng thái hoặc ghi chú cho một thiết bị cụ thể.
 
 Xóa một thiết bị cụ thể ra khỏi hệ thống.
 
-- **Quyền hạn:** `ADMIN`, `STAFF`. (STAFF chỉ được xóa thiết bị tại chi nhánh của mình).
+- **Quyền hạn:** `ADMIN`, `STAFF`..
 - **Thành công `200`:**
   ```json
   {
@@ -223,9 +211,6 @@ Xóa một thiết bị cụ thể ra khỏi hệ thống.
 Lấy tổng hợp số lượng máy móc theo từng trạng thái (tổng số máy, đang chạy tốt, đang bảo trì, đã hỏng).
 
 - **Quyền hạn:** `ADMIN`, `STAFF`.
-  - STAFF chỉ xem thống kê của chi nhánh mình. ADMIN xem toàn bộ hoặc lọc theo `branchId` trong query.
-- **Query Parameters:**
-  - `branchId` (optional): Lọc theo ID chi nhánh (chỉ ADMIN).
 - **Thành công `200`:**
   ```json
   {
@@ -245,11 +230,10 @@ Lấy tổng hợp số lượng máy móc theo từng trạng thái (tổng s�
 
 Lấy danh sách các lịch bảo trì thiết bị phòng tập.
 
-- **Quyền hạn:** `ADMIN`, `STAFF`. (STAFF chỉ xem lịch thuộc chi nhánh của mình).
+- **Quyền hạn:** `ADMIN`, `STAFF`..
 - **Query Parameters:**
   - `month` (optional): Tháng cần lọc (1 - 12), yêu cầu phải đi kèm `year`.
   - `year` (optional): Năm cần lọc, yêu cầu đi kèm `month`.
-  - `branchId` (optional): Lọc theo ID chi nhánh (chỉ ADMIN).
 - **Lưu ý:** Nếu không truyền `month` và `year`, hệ thống sẽ trả về danh sách các lịch bảo trì chưa hoàn thành (`PENDING` hoặc `IN_PROGRESS`).
 - **Thành công `200`:** `data` là mảng danh sách lịch bảo trì.
 
@@ -259,7 +243,7 @@ Lấy danh sách các lịch bảo trì thiết bị phòng tập.
 
 Lên lịch bảo trì mới cho một hoặc nhiều thiết bị. Hệ thống sẽ **tự động** cập nhật trạng thái của tất cả các thiết bị này sang `UNDER_MAINTENANCE`.
 
-- **Quyền hạn:** `ADMIN`, `STAFF`. (STAFF chỉ được lên lịch cho thiết bị thuộc chi nhánh mình).
+- **Quyền hạn:** `ADMIN`, `STAFF`..
 - **Request Body:**
   ```json
   {

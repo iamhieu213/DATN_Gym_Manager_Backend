@@ -10,8 +10,7 @@ export class EquipmentService {
         if (role !== 'ADMIN') {
             throw new Error('FORBIDDEN');
         }
-        const { name, baseCode, quantity, purchaseDate, note, branchId } = dto;
-        if (!branchId) throw new Error('BAD_REQUEST');
+        const { name, baseCode, quantity, purchaseDate, note } = dto;
         if (quantity <= 0) {
             throw new Error('INVALID_QUANTITY');
         }
@@ -37,26 +36,16 @@ export class EquipmentService {
                 code: generatedCode,
                 status: 'OPERATIONAL' as EquipmentStatus,
                 purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
-                note: note || null,
-                branchId: branchId
+                note: note || null
             });
         }
         await this.repository.createMany(newEquipments);
         return newEquipments.length;
     }
 
-    public async getEquipmentSummary(role: string, actorBranchId: number | null | undefined, query: { search?: string, branchId?: string }) {
+    public async getEquipmentSummary(query: { search?: string }) {
         const where: any = {};
 
-        let targetBranchId: number | null = null;
-        if (role === 'ADMIN') {
-            targetBranchId = query.branchId ? Number(query.branchId) : null;
-        } else {
-            targetBranchId = query.branchId ? Number(query.branchId) : (actorBranchId ?? null);
-        }
-        if (targetBranchId) {
-            where.branchId = targetBranchId;
-        }
         if (query.search) {
             where.name = {
                 contains: query.search,
@@ -86,7 +75,7 @@ export class EquipmentService {
     }
 
     //Lay chi tiet cac may (khong cho USER xem thong tin nhay cam)
-    public async getEquipmentGroupDetails(role: string, actorBranchId: number | null | undefined, name: string | undefined, query: ListQueryEquipmentDetailDto) {
+    public async getEquipmentGroupDetails(role: string, name: string | undefined, query: ListQueryEquipmentDetailDto) {
         // name là optional để hỗ trợ hiển thị toàn bộ thiết bị sảnh gym
 
         const page = Number(query.page ?? 1);
@@ -104,17 +93,6 @@ export class EquipmentService {
                 contains: query.search,
                 mode: 'insensitive'
             };
-        }
-
-        let targetBranchId: number | null = null;
-        if (role === 'ADMIN') {
-            targetBranchId = query.branchId ? Number(query.branchId) : null;
-        } else {
-            targetBranchId = query.branchId ? Number(query.branchId) : (actorBranchId ?? null);
-        }
-
-        if (targetBranchId) {
-            where.branchId = targetBranchId;
         }
 
         //Truy van song song danh sach phan trang va dem tong so luong
@@ -138,7 +116,7 @@ export class EquipmentService {
     }
 
     //Cap nhat 1 thiet bi
-    public async updateEquipment(role: string, id: number, actorBranchId: number | null | undefined, dto: UpdateEquipmentDto) {
+    public async updateEquipment(role: string, id: number, dto: UpdateEquipmentDto) {
         if (role !== 'ADMIN' && role !== 'STAFF') {
             throw new Error('FORBIDDEN');
         }
@@ -146,11 +124,6 @@ export class EquipmentService {
         const existing = await this.repository.findById(id);
         if (!existing) {
             throw new Error('EQUIPMENT_NOT_FOUND');
-        }
-
-        //Chan staff sua thiet bi chi nhanh khac
-        if (role === 'STAFF' && existing.branchId !== actorBranchId) {
-            throw new Error('FORBIDDEN');
         }
 
         const updateData: any = {};
@@ -164,19 +137,13 @@ export class EquipmentService {
     }
 
     //Cap nhat hang loat thiet bi
-    public async bulkUpdateEquipment(role: string, actorBranchId: number | null | undefined, dto: BulkUpdateEquipmentDto) {
+    public async bulkUpdateEquipment(role: string, dto: BulkUpdateEquipmentDto) {
         if (role !== 'ADMIN' && role !== 'STAFF') {
             throw new Error('FORBIDDEN');
         }
 
         if (!dto.ids || dto.ids.length === 0) {
             throw new Error('BAD_REQUEST');
-        }
-
-        if (role === 'STAFF') {
-            const equipments = await this.repository.findAll({ id: { in: dto.ids } });
-            const hasInvalid = equipments.some(eq => eq.branchId !== actorBranchId);
-            if (hasInvalid) throw new Error('FORBIDDEN');
         }
 
         const updateData: any = {};
@@ -190,17 +157,13 @@ export class EquipmentService {
     }
 
     // 6. Xóa 1 thiết bị cụ thể (ADMIN, STAFF)
-    public async deleteEquipment(role: string, actorBranchId: number | null | undefined, id: number) {
+    public async deleteEquipment(role: string, id: number) {
         if (role !== 'ADMIN' && role !== 'STAFF') {
             throw new Error('FORBIDDEN');
         }
         const equipment = await this.repository.findById(id);
         if (!equipment) {
             throw new Error('EQUIPMENT_NOT_FOUND');
-        }
-        // Chặn STAFF xóa thiết bị chi nhánh khác
-        if (role === 'STAFF' && equipment.branchId !== actorBranchId) {
-            throw new Error('FORBIDDEN');
         }
         await this.repository.delete(id);
     }
@@ -218,18 +181,11 @@ export class EquipmentService {
     }
 
     // 8. Lấy tổng số lượng thiết bị theo trạng thái
-    public async getEquipmentStats(role: string, actorBranchId: number | null | undefined, queryBranchId?: string) {
+    public async getEquipmentStats(role: string) {
         if (role !== 'ADMIN' && role !== 'STAFF') {
             throw new Error('FORBIDDEN');
         }
 
-        let targetBranchId: number | undefined = undefined;
-        if (role === 'STAFF') {
-            if (!actorBranchId) throw new Error('STAFF_BRANCH_REQUIRED');
-            targetBranchId = actorBranchId;
-        } else if (role === 'ADMIN' && queryBranchId) {
-            targetBranchId = Number(queryBranchId);
-        }
         const rawStats = await this.repository.getStatsSummary();
 
         const stats = {
@@ -258,22 +214,8 @@ export class EquipmentService {
     // Thêm vào trong class EquipmentService:
 
     // 1. Lấy danh sách nhiệm vụ bảo trì sắp tới
-    public async getMaintenanceTasks(role: string,
-        actorBranchId: number | null | undefined,
-        month?: number, year?: number,
-        queryBranchId?: string) {
+    public async getMaintenanceTasks(month?: number, year?: number) {
         const where: any = {};
-
-        let targetBranchId: number | null = null;
-        if (role === 'STAFF') {
-            targetBranchId = actorBranchId ?? null;
-        } else if (role === 'ADMIN' && queryBranchId) {
-            targetBranchId = Number(queryBranchId);
-        }
-
-        if (targetBranchId) {
-            where.equipment = { branchId: targetBranchId };
-        }
 
         // Nếu có lọc theo tháng/năm
         if (month && year) {

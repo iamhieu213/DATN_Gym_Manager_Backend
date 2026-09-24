@@ -6,7 +6,6 @@ export interface ListUserQueryDto {
     search? : string;
     role? : UserRole;
     status? : UserStatus;
-    branchId? : string;
 }
 
 export interface UserListItemDto {
@@ -24,8 +23,6 @@ export interface UserListItemDto {
     emergencyContact: string | null;
     createdAt: Date;
     updatedAt: Date;
-    branchId: number | null;
-    branch?: { id : number, name : string, code : string } | null;
 }
 
 export interface PaginatedUserListDto {
@@ -63,7 +60,6 @@ export interface CreateUserDto {
     citizenId?: string;
     address?: string;
     emergencyContact?: string;
-    branchId? : number;
 }
 
 //Cap nhat thong tin nguoi dung bat ky (ADMIN/STAFF)
@@ -76,7 +72,6 @@ export interface UpdateUserDto {
     citizenId?: string;
     address?: string;
     emergencyContact?: string;
-    branchId? : number;
 }
 
 //Cap nhat anh dai dien

@@ -28,7 +28,6 @@ Các callback webhook của VNPAY không cần đăng nhập. Các API còn lạ
   "transaction_ref": null,
   "gateway_response": null,
   "paid_at": null,
-  "branchId": 1,
   "created_at": "2026-06-01T00:00:00.000Z"
 }
 ```
@@ -91,7 +90,6 @@ Hội viên tự xem lịch sử các giao dịch thanh toán của chính mình
 Xem thông tin chi tiết một hóa đơn cụ thể.
 
 - **Quyền hạn:** Chủ sở hữu hóa đơn, `ADMIN` hoặc `STAFF`.
-  - **Giới hạn chi nhánh:** Tài khoản `STAFF` chỉ có quyền xem chi tiết hóa đơn thuộc **chi nhánh của STAFF đó**. Nếu hóa đơn thuộc chi nhánh khác, trả lỗi `FORBIDDEN` (403).
 - **Thành công `200`:** `data` là đối tượng Payment chi tiết.
 
 ---
@@ -101,16 +99,6 @@ Xem thông tin chi tiết một hóa đơn cụ thể.
 Lễ tân (Staff/Admin) xác nhận hội viên thanh toán trực tiếp bằng tiền mặt (CASH) tại quầy. Hệ thống sẽ kích hoạt gói tập hoặc hợp đồng PT tương ứng với hóa đơn.
 
 - **Quyền hạn:** `ADMIN`, `STAFF`.
-  - **Giới hạn chi nhánh:**
-    - Tài khoản `STAFF`: Tự động ghi nhận số tiền thu được tại chi nhánh của STAFF đó. Nếu STAFF chưa được gán chi nhánh trong hệ thống, trả lỗi `400 STAFF_BRANCH_REQUIRED`.
-    - Tài khoản `ADMIN`: Mặc định ghi nhận theo `branchId` gửi kèm trong request body (hoặc null nếu không gửi).
-- **Request Body:**
-  ```json
-  {
-    "branchId": 1
-  }
-  ```
-  - **Lưu ý:** `branchId` là optional (chỉ ADMIN có quyền truyền tham số này để điều phối chi nhánh thu tiền mặt).
 - **Thành công `200`:**
   ```json
   {
@@ -126,14 +114,11 @@ Lễ tân (Staff/Admin) xác nhận hội viên thanh toán trực tiếp bằng
 Ban quản trị xem toàn bộ danh sách hóa đơn thanh toán trong hệ thống, hỗ trợ tìm kiếm, lọc và phân trang.
 
 - **Quyền hạn:** `ADMIN`, `STAFF`.
-  - **Phân vùng dữ liệu:**
-    - Tài khoản `STAFF` chỉ có thể xem danh sách hóa đơn thuộc **chi nhánh của STAFF đó**. Nếu STAFF chưa được gán chi nhánh, trả lỗi `400 STAFF_BRANCH_REQUIRED`.
-    - Tài khoản `ADMIN` có thể xem toàn bộ hoặc lọc theo chi nhánh bất kỳ.
+  - STAFF và ADMIN đều xem được toàn bộ hóa đơn của phòng tập.
 - **Query Parameters:**
   - `page` (optional): Trang hiện tại, mặc định `1`.
   - `limit` (optional): Số lượng hóa đơn/trang, mặc định `10`.
   - `status` (optional): Lọc theo trạng thái `PENDING`, `PAID`, `FAILED`, `REFUNDED`.
   - `search` (optional): Tìm theo tên (`name`), email, hoặc số điện thoại (`phone`) của khách hàng sở hữu hóa đơn.
-  - `branchId` (optional): Lọc theo ID chi nhánh (chỉ ADMIN).
 
 - **Thành công `200`:** Trả về danh sách hóa đơn và meta phân trang.

@@ -126,7 +126,7 @@ export class MembershipsService {
     }
 
     // 3. Xác nhận đã đóng tiền & Kích hoạt gói tập + Cập nhật Redis Cache
-    public async confirmPayment(role: string, actorBranchId: number | null | undefined, paymentId: number, transactionRef?: string, gatewayResponse?: any) {
+    public async confirmPayment(role: string, paymentId: number, transactionRef?: string, gatewayResponse?: any) {
         if (role !== 'ADMIN' && role !== 'STAFF') {
             throw new Error("FORBIDDEN");
         }
@@ -144,8 +144,7 @@ export class MembershipsService {
             const { payment: updatedPayment, membership } = await this.repository.activateMembershipPayment(
                 paymentId,
                 transactionRef ?? `CASH_CONFIRMED_BY_${role}`,
-                gatewayResponse ?? { confirmedBy: role },
-                role === 'STAFF' ? actorBranchId : null
+                gatewayResponse ?? { confirmedBy: role }
             );
 
             // --- LƯU THÔNG TIN GÓI TẬP ACTIVE LÊN REDIS (Để điểm danh/check-in) ---
@@ -234,16 +233,13 @@ export class MembershipsService {
         if (!activeSub) return null;
 
         // Lưu bù vào Redis cache nếu chưa có sẵn
+        // Lưu ý: cache nguyên `activeSub` (không rút gọn field) để response trả về
+        // GIỐNG HỆT NHAU dù cache hit hay miss — trước đây bản rút gọn thiếu `status`
+        // và object `plan` lồng nhau khiến các nơi gọi API (PhysicalMembershipCard,
+        // MembershipCard...) đọc sai dữ liệu ngay sau khi cache đã được làm nóng.
         const ttlInSeconds = Math.floor((activeSub.end_date.getTime() - Date.now()) / 1000);
         if (ttlInSeconds > 0) {
-            const cacheValue = {
-                membershipId: activeSub.id,
-                planId: activeSub.plan_id,
-                planName: activeSub.plan.name,
-                startDate: activeSub.start_date,
-                endDate: activeSub.end_date
-            };
-            await redisService.set(redisKey, JSON.stringify(cacheValue), ttlInSeconds);
+            await redisService.set(redisKey, JSON.stringify(activeSub), ttlInSeconds);
         }
 
         return activeSub;

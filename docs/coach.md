@@ -31,7 +31,6 @@ Lấy danh sách PT (Huấn luyện viên cá nhân) public đang mở hoạt đ
   - `page` (optional): Trang hiện tại, mặc định `1`.
   - `limit` (optional): Số bản ghi/trang, mặc định `10`.
   - `search` (optional): Tìm kiếm theo tên của PT.
-  - `branchId` (optional): Lọc PT thuộc một chi nhánh phòng tập cụ thể.
   - `goal` (optional): Lọc theo mục tiêu huấn luyện: `WEIGHT_LOSS`, `MUSCLE_GAIN`, `COMPETITION_PREP`, `REHABILITATION`, `GENERAL_FITNESS`.
   - `ptPackageId` (optional): Lọc các PT đang dạy gói Combo này.
   - `dayOfWeek` (optional): Ngày trong tuần (0: Chủ Nhật, 1: Thứ 2, ..., 6: Thứ 7).
@@ -39,7 +38,7 @@ Lấy danh sách PT (Huấn luyện viên cá nhân) public đang mở hoạt đ
   - `endTime` (optional): Giờ kết thúc, ví dụ `20:00`.
   - `slots` (optional): Mảng JSON string chứa các khung giờ cần lọc, ví dụ: `[{"dayOfWeek":1,"startTime":"18:00","endTime":"20:00"}]`.
 
-- **Thành công `200`:** `data` là mảng các coach profiles kèm theo thông tin chi tiết user và chi nhánh.
+- **Thành công `200`:** `data` là mảng các coach profiles kèm theo thông tin chi tiết user.
 
 ---
 
@@ -118,15 +117,12 @@ PT cập nhật lịch rảnh hàng tuần của mình để hội viên có th�
 Ban quản trị xem danh sách toàn bộ PT trong hệ thống (bao gồm cả PT đang không hoạt động).
 
 - **Quyền hạn:** `ADMIN`, `STAFF`.
-  - **Phân vùng dữ liệu:**
-    - Tài khoản `STAFF` chỉ được xem danh sách PT thuộc **chi nhánh của STAFF đó**. Nếu STAFF chưa được gán chi nhánh, trả lỗi `400 STAFF_BRANCH_REQUIRED`.
-    - Tài khoản `ADMIN` xem được tất cả các PT trên toàn hệ thống.
+  - STAFF và ADMIN đều xem được tất cả các PT trên toàn hệ thống.
 - **Query Parameters:**
   - `page` (optional): Trang hiện tại, mặc định `1`.
   - `limit` (optional): Số bản ghi/trang, mặc định `10`.
   - `search` (optional): Tìm kiếm theo tên của PT.
   - `isAvailable` (optional): Lọc theo trạng thái sẵn sàng nhận khách (`true` hoặc `false`).
-  - `branchId` (optional): Lọc theo ID chi nhánh (chỉ ADMIN có quyền sử dụng tham số này để lọc chi nhánh khác).
 
 - **Thành công `200`:** `data` là mảng danh sách PT, `meta` là phân trang.
 

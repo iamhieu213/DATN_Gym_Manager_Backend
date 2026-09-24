@@ -83,7 +83,6 @@ export class PtBookingService {
     // Xac nhan hoa don va kich hoat hop dong (ho tro ca thue moi va dong chenh lech)
     public async confirmPayment(
         role: string,
-        targetBranchId: number | null | undefined,
         paymentId: number,
         transactionRef: string = "CASH_PAYMENT",
         gatewayResponse?: any) {
@@ -118,8 +117,7 @@ export class PtBookingService {
                 newSessions,
                 totalNewPrice,
                 transactionRef,
-                gatewayResponse,
-                role === 'STAFF' ? targetBranchId : null
+                gatewayResponse
             );
         } else {
             // Day la hoa don dang ky thue PT binh thuong
@@ -309,7 +307,7 @@ export class PtBookingService {
     }
 
     // Lay toan bo yeu cau doi PT (Admin/Staff)
-    public async getChangeRequests(role: string, actorBranchId: number | null | undefined, status?: string) {
+    public async getChangeRequests(role: string, status?: string) {
         if (role !== "ADMIN" && role !== "STAFF") {
             throw new Error("FORBIDDEN");
         }
@@ -317,13 +315,6 @@ export class PtBookingService {
         const where: any = {};
         if (status) where.status = status;
 
-        if (role === 'STAFF') {
-            if (!actorBranchId) throw new Error("STAFF_BRANCH_REQUIRED");
-            where.OR = [
-                { oldCoach: { user: { branchId: actorBranchId } } },
-                { newCoach: { user: { branchId: actorBranchId } } }
-            ]
-        }
         return this.repository.findChangeRequests(where);
     }
 
@@ -333,7 +324,7 @@ export class PtBookingService {
     }
 
     // Admin lay toan bo hop dong thue PT cua he thong
-    public async adminGetAssignments(role: string, actorBranchId: number | null | undefined, status?: string) {
+    public async adminGetAssignments(role: string, status?: string) {
         if (role !== "ADMIN" && role !== "STAFF") {
             throw new Error("FORBIDDEN");
         }
@@ -341,12 +332,6 @@ export class PtBookingService {
         const where: any = {};
         if (status) where.status = status;
 
-        if (role === 'STAFF') {
-            if (!actorBranchId) throw new Error("STAFF_BRANCH_REQUIRED");
-            where.coach = {
-                user: { branchId: actorBranchId } //Chi lay hop dong co PT thuoc chi nhanh cua Staff
-            }
-        }
         return this.repository.findAllAssignments(where);
     }
 }
