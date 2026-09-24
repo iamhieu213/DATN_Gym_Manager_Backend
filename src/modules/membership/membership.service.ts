@@ -220,29 +220,14 @@ export class MembershipsService {
         return updated;
     }
 
-    // 5. Xem gói active (Ưu tiên đọc từ Redis trước cho nhanh)
+    // 5. Xem gói active của hội viên
+    // Luôn đọc từ DB (không đọc từ Redis): key `membership:active:<userId>` được
+    // check-in và confirmPayment ghi ở dạng RÚT GỌN ({membershipId, planId, planName,
+    // startDate, endDate}) chỉ để phục vụ điểm danh. Nếu API này đọc chung key đó thì
+    // response sẽ đổi dạng (mất `status`, `plan`, snake_case) tuỳ ai làm nóng cache trước.
+    // Truy vấn theo user_id có chỉ mục nên rất nhẹ; response luôn cùng 1 dạng đầy đủ.
     public async getActiveMembership(userId: number) {
-        const redisKey = redisService.key("membership:active", userId);
-        const cached = await redisService.get(redisKey);
-
-        if (cached) {
-            return JSON.parse(cached); // Trả về luôn từ bộ nhớ RAM
-        }
-
-        const activeSub = await this.repository.findActiveMembershipByUserId(userId);
-        if (!activeSub) return null;
-
-        // Lưu bù vào Redis cache nếu chưa có sẵn
-        // Lưu ý: cache nguyên `activeSub` (không rút gọn field) để response trả về
-        // GIỐNG HỆT NHAU dù cache hit hay miss — trước đây bản rút gọn thiếu `status`
-        // và object `plan` lồng nhau khiến các nơi gọi API (PhysicalMembershipCard,
-        // MembershipCard...) đọc sai dữ liệu ngay sau khi cache đã được làm nóng.
-        const ttlInSeconds = Math.floor((activeSub.end_date.getTime() - Date.now()) / 1000);
-        if (ttlInSeconds > 0) {
-            await redisService.set(redisKey, JSON.stringify(activeSub), ttlInSeconds);
-        }
-
-        return activeSub;
+        return this.repository.findActiveMembershipByUserId(userId);
     }
 
     public async getMyHistory(userId: number) {

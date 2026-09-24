@@ -62,6 +62,8 @@ Khi lỗi, response thường là:
 - [PT Booking](./pt-booking.md)
 - [Dashboard](./dashboard.md)
 - [Equipment](./equipment.md)
+- [Body Metrics](./body-metrics.md)
+- [Notification](./notification.md)
 
 ## Endpoint ngoài module
 
